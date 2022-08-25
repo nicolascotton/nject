@@ -1,31 +1,9 @@
-use nject::{injectable, provider};
+use nject::provider;
+mod common;
+pub use common::*;
 
 #[provider]
 struct Provider;
-
-#[injectable]
-#[derive(Debug, PartialEq)]
-struct StructWithoutDeps;
-
-#[injectable]
-#[derive(Debug, PartialEq)]
-struct StructWithNamedDeps {
-    dep: StructWithoutDeps,
-}
-
-#[injectable]
-#[derive(Debug, PartialEq)]
-struct StructWithUnnamedDeps(StructWithoutDeps);
-
-#[injectable]
-#[derive(Debug, PartialEq)]
-struct StructWithNamedGenericDeps<T> {
-    dep: T
-}
-
-#[injectable]
-#[derive(Debug, PartialEq)]
-struct StructWithUnnamedGenericDeps<T>(T);
 
 #[test]
 fn provide_struct_without_deps_should_give_corresponding_struct() {
@@ -69,7 +47,12 @@ fn provide_struct_with_named_generic_deps_should_give_corresponding_struct() {
     // When
     let value: StructWithNamedGenericDeps<StructWithoutDeps> = provider.provide();
     // Then
-    assert_eq!(value, StructWithNamedGenericDeps { dep: StructWithoutDeps });
+    assert_eq!(
+        value,
+        StructWithNamedGenericDeps {
+            dep: StructWithoutDeps
+        }
+    );
 }
 
 #[test]
