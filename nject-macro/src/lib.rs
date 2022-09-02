@@ -31,6 +31,17 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             GenericParam::Lifetime(l) => quote! { #l },
         })
         .collect::<Vec<_>>();
+    let lifetime_keys = &generic_params
+        .iter()
+        .filter_map(|p| match p {
+            GenericParam::Lifetime(l) => Some(quote! { #l }),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let prov_lifetimes = match lifetime_keys.len() > 0 {
+        true => quote! { 'prov: #(#lifetime_keys),*, },
+        false => quote! {},
+    };
     let where_predicates = match &input.generics.where_clause {
         Some(w) => {
             let predicates = &w.predicates;
@@ -48,10 +59,12 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let output = quote! {
         #input
 
-        impl<#(#generic_params,)*NjectProvider> nject::Injectable<#ident<#(#generic_keys),*>, NjectProvider> for #ident<#(#generic_keys),*>
-            where NjectProvider: #(nject::Provider<#types>)+*,#where_predicates
+        impl<'prov, #(#generic_params,)*NjectProvider> nject::Injectable<'prov, #ident<#(#generic_keys),*>, NjectProvider> for #ident<#(#generic_keys),*>
+            where
+                #prov_lifetimes
+                NjectProvider: #(nject::Provider<'prov, #types>)+*,#where_predicates
         {
-            fn inject(provider: &NjectProvider) -> #ident<#(#generic_keys),*> {
+            fn inject(provider: &'prov NjectProvider) -> #ident<#(#generic_keys),*> {
                 #creation_output
             }
         }
@@ -89,10 +102,20 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
         use nject::Provider as _;
         #input
 
-        impl<#(#generic_params,)*Njecty> nject::Provider<Njecty> for #ident<#(#generic_keys),*>
-            where Njecty: nject::Injectable<Njecty, #ident<#(#generic_keys),*>>,#where_predicates
+        impl<'prov, #(#generic_params,)*Njecty> nject::Provider<'prov, Njecty> for #ident<#(#generic_keys),*>
+            where Njecty: nject::Injectable<'prov, Njecty, #ident<#(#generic_keys),*>>,#where_predicates
         {
-            fn provide(&self) -> Njecty {
+            fn provide(&'prov self) -> Njecty {
+                Njecty::inject(self)
+            }
+        }
+
+        impl<#(#generic_params),*> #ident<#(#generic_keys),*>
+            where #where_predicates
+        {
+            pub fn inject<'prov, Njecty>(&'prov self) -> Njecty
+                where Njecty: nject::Injectable<'prov, Njecty, #ident<#(#generic_keys),*>>
+            {
                 Njecty::inject(self)
             }
         }

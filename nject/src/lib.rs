@@ -48,7 +48,7 @@
 //!     shared: &'a DepOne,
 //! }
 //!
-//! impl<'a> nject::Provider<&'a DepOne> for Provider<'a> {
+//! impl<'a> nject::Provider<'_, &'a DepOne> for Provider<'a> {
 //!     fn provide(&self) -> &'a DepOne {
 //!         self.shared
 //!     }
@@ -85,7 +85,7 @@
 //! #[provider]
 //! struct Provider;
 //!
-//! impl nject::Provider<Box<dyn Greeter>> for Provider {
+//! impl nject::Provider<'_, Box<dyn Greeter>> for Provider {
 //!     fn provide(&self) -> Box<dyn Greeter> {
 //!         Box::<GreeterOne>::new(self.provide())
 //!     }
@@ -150,7 +150,7 @@
 //! #[provider]
 //! struct Provider<'a, T: Greeter>(&'a T);
 //!
-//! impl<'a, T: Greeter> nject::Provider<&'a dyn Greeter> for Provider<'a, T> {
+//! impl<'a, T: Greeter> nject::Provider<'_, &'a dyn Greeter> for Provider<'a, T> {
 //!     fn provide(&self) -> &'a dyn Greeter {
 //!         self.0
 //!     }
@@ -166,10 +166,10 @@
 
 pub use nject_macro::{injectable, provider};
 
-pub trait Provider<Value> {
-    fn provide(&self) -> Value;
+pub trait Provider<'prov, Value> {
+    fn provide(&'prov self) -> Value;
 }
 
-pub trait Injectable<Injecty, Provider> {
-    fn inject(provider: &Provider) -> Injecty;
+pub trait Injectable<'prov, Injecty, Provider> {
+    fn inject(provider: &'prov Provider) -> Injecty;
 }

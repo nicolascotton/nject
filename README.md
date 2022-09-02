@@ -1,9 +1,8 @@
-# nject
+# nject ![Rust](https://github.com/nicolascotton/nject/workflows/Rust/badge.svg)
 Simple zero cost injection library for rust
 ## Install
 Add the following to your `Cargo.toml`:
 ```toml
-[dependencies]
 nject = { git = "https://github.com/nicolascotton/nject.git" }
 ```
 ## Use cases
@@ -49,7 +48,7 @@ struct Provider<'a> {
     shared: &'a DepOne,
 }
 
-impl<'a> nject::Provider<&'a DepOne> for Provider<'a> {
+impl<'a> nject::Provider<'_, &'a DepOne> for Provider<'a> {
     fn provide(&self) -> &'a DepOne {
         self.shared
     }
@@ -86,7 +85,7 @@ struct Facade {
 #[provider]
 struct Provider;
 
-impl nject::Provider<Box<dyn Greeter>> for Provider {
+impl nject::Provider<'_, Box<dyn Greeter>> for Provider {
     fn provide(&self) -> Box<dyn Greeter> {
         Box::<GreeterOne>::new(self.provide())
     }
@@ -145,13 +144,13 @@ impl Greeter for ProdGreeter {
 
 #[injectable]
 struct Facade<'a> {
-    dep: &'a dyn Greeter 
+    dep: &'a dyn Greeter
 }
 
 #[provider]
 struct Provider<'a, T: Greeter>(&'a T);
 
-impl<'a, T: Greeter> nject::Provider<&'a dyn Greeter> for Provider<'a, T> {
+impl<'a, T: Greeter> nject::Provider<'_, &'a dyn Greeter> for Provider<'a, T> {
     fn provide(&self) -> &'a dyn Greeter {
         self.0
     }

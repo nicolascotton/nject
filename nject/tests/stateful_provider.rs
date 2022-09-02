@@ -19,19 +19,19 @@ impl<'a> Provider<'a> {
     }
 }
 
-impl<'a> nject::Provider<&'a StructWithoutDeps> for Provider<'a> {
+impl<'a> nject::Provider<'_, &'a StructWithoutDeps> for Provider<'a> {
     fn provide(&self) -> &'a StructWithoutDeps {
         self.lifetime
     }
 }
 
-impl<'a> nject::Provider<Box<dyn Greeter>> for Provider<'a> {
+impl<'a> nject::Provider<'_, Box<dyn Greeter>> for Provider<'a> {
     fn provide(&self) -> Box<dyn Greeter> {
         Box::<GreeterOne>::new(self.provide())
     }
 }
 
-impl<'a> nject::Provider<Rc<i32>> for Provider<'a> {
+impl<'a> nject::Provider<'_, Rc<i32>> for Provider<'a> {
     fn provide(&self) -> Rc<i32> {
         self.shared_rc.clone()
     }
