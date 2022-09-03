@@ -1,8 +1,9 @@
-//! # nject
-//! Simple zero cost injection library for rust
+//! # nject ![Rust](https://github.com/nicolascotton/nject/workflows/Rust/badge.svg)
+//! Simple zero cost injection library made for rust
 //! ## Install
 //! Add the following to your `Cargo.toml`:
 //! ```toml
+//! [dependencies]
 //! nject = { git = "https://github.com/nicolascotton/nject.git" }
 //! ```
 //! ## Use cases
@@ -27,13 +28,13 @@
 //! struct Provider;
 //!
 //! fn main() {
-//!     let _facade: Facade = Provider.provide();
+//!     let _facade: Facade = Provider.inject();
 //! }
 //!
 //! ```
 //! ### Works with lifetimes - enables shared dependencies
 //! ```rust
-//! use nject::{injectable, provider};
+//! use nject::{injectable, provide, provider};
 //!
 //! #[injectable]
 //! struct DepOne;
@@ -44,25 +45,20 @@
 //! }
 //!
 //! #[provider]
+//! #[provide(&'a DepOne, self.shared)]
 //! struct Provider<'a> {
 //!     shared: &'a DepOne,
 //! }
 //!
-//! impl<'a> nject::Provider<'_, &'a DepOne> for Provider<'a> {
-//!     fn provide(&self) -> &'a DepOne {
-//!         self.shared
-//!     }
-//! }
-//!
 //! fn main() {
 //!     let provider = Provider { shared: &DepOne };
-//!     let _facade: Facade = provider.provide();
+//!     let _facade: Facade = provider.inject();
 //! }
 //!
 //! ```
 //! ### Works with dyn traits
 //! ```rust
-//! use nject::{injectable, provider};
+//! use nject::{injectable, provide, provider};
 //!
 //! trait Greeter {
 //!     fn greet(&self);
@@ -78,21 +74,21 @@
 //! }
 //!
 //! #[injectable]
-//! struct Facade {
-//!     dep: Box<dyn Greeter>,
+//! struct Facade<'a> {
+//!     boxed_dep: Box<dyn Greeter>,
+//!     ref_dep: &'a dyn Greeter,
 //! }
 //!
 //! #[provider]
-//! struct Provider;
-//!
-//! impl nject::Provider<'_, Box<dyn Greeter>> for Provider {
-//!     fn provide(&self) -> Box<dyn Greeter> {
-//!         Box::<GreeterOne>::new(self.provide())
-//!     }
+//! #[provide(Box<dyn Greeter>, Box::<GreeterOne>::new(self.inject()))]
+//! #[provide(&'prov dyn Greeter, &self.greeter)]
+//! struct Provider {
+//!     greeter: GreeterOne,
 //! }
 //!
 //! fn main() {
-//!     let _facade: Facade = Provider.provide();
+//!     let provider = Provider { greeter: GreeterOne };
+//!     let _facade: Facade = provider.inject();
 //! }
 //!
 //! ```
@@ -105,20 +101,20 @@
 //!
 //! #[injectable]
 //! struct Facade<T> {
-//!     dep: T
+//!     dep: T,
 //! }
 //!
 //! #[provider]
 //! struct Provider;
 //!
 //! fn main() {
-//!     let _facade: Facade<DepOne> = Provider.provide();
+//!     let _facade: Facade<DepOne> = Provider.inject();
 //! }
 //!
 //! ```
 //! ### Works with generic providers
 //! ```rust
-//! use nject::{injectable, provider};
+//! use nject::{injectable, provide, provider};
 //!
 //! trait Greeter {
 //!     fn greet(&self);
@@ -144,27 +140,27 @@
 //!
 //! #[injectable]
 //! struct Facade<'a> {
-//!     dep: &'a dyn Greeter
+//!     dep: &'a dyn Greeter,
 //! }
 //!
 //! #[provider]
+//! #[provide(&'a dyn Greeter, self.0)]
 //! struct Provider<'a, T: Greeter>(&'a T);
 //!
-//! impl<'a, T: Greeter> nject::Provider<'_, &'a dyn Greeter> for Provider<'a, T> {
-//!     fn provide(&self) -> &'a dyn Greeter {
-//!         self.0
-//!     }
-//! }
-//!
 //! fn main() {
-//!     let _dev_facade: Facade = Provider(&DevGreeter).provide();
-//!     let _prod_facade: Facade = Provider(&ProdGreeter).provide();
+//!     let _dev_facade: Facade = Provider(&DevGreeter).inject();
+//!     let _prod_facade: Facade = Provider(&ProdGreeter).inject();
 //! }
 //! ```
+//! ## Examples
+//! You can look into the [axum](https://github.com/nicolascotton/nject/tree/main/examples/axum) example for a web API use case.
 //! ## Credits
+//! - [Syn](https://github.com/dtolnay/syn) - [MIT](https://github.com/dtolnay/syn/blob/master/LICENSE-MIT) or [Apache-2.0](https://github.com/dtolnay/syn/blob/master/LICENSE-APACHE)
+//! - [Quasi-Quoting](https://github.com/dtolnay/quote) - [MIT](https://github.com/dtolnay/quote/blob/master/LICENSE-MIT) or [Apache-2.0](https://github.com/dtolnay/quote/blob/master/LICENSE-APACHE)
 //! - [Rust](https://github.com/rust-lang/rust) - [MIT](https://github.com/rust-lang/rust/blob/master/LICENSE-MIT) or [Apache-2.0](https://github.com/rust-lang/rust/blob/master/LICENSE-APACHE)
 
-pub use nject_macro::{injectable, provider};
+#[cfg(feature = "macro")]
+pub use nject_macro::{injectable, provide, provider};
 
 pub trait Provider<'prov, Value> {
     fn provide(&'prov self) -> Value;

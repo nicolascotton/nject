@@ -1,5 +1,6 @@
 [workspace]
 members = [
     'nject',
-    'nject-macro'
+    'nject-macro',
+    'examples/*'
 ]
