@@ -1,6 +1,9 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput, GenericParam, Ident, Type};
+use syn::{
+    parse::{Parse, ParseStream},
+    parse_macro_input, DeriveInput, Expr, GenericParam, Ident, Token, Type,
+};
 
 #[proc_macro_attribute]
 pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -31,6 +34,17 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             GenericParam::Lifetime(l) => quote! { #l },
         })
         .collect::<Vec<_>>();
+    let lifetime_keys = &generic_params
+        .iter()
+        .filter_map(|p| match p {
+            GenericParam::Lifetime(l) => Some(quote! { #l }),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let prov_lifetimes = match lifetime_keys.len() > 0 {
+        true => quote! { 'prov: #(#lifetime_keys)+*, },
+        false => quote! {},
+    };
     let where_predicates = match &input.generics.where_clause {
         Some(w) => {
             let predicates = &w.predicates;
@@ -48,10 +62,12 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let output = quote! {
         #input
 
-        impl<#(#generic_params,)*NjectProvider> nject::Injectable<#ident<#(#generic_keys),*>, NjectProvider> for #ident<#(#generic_keys),*>
-            where NjectProvider: #(nject::Provider<#types>)+*,#where_predicates
+        impl<'prov, #(#generic_params,)*NjectProvider> nject::Injectable<'prov, #ident<#(#generic_keys),*>, NjectProvider> for #ident<#(#generic_keys),*>
+            where
+                #prov_lifetimes
+                NjectProvider: #(nject::Provider<'prov, #types>)+*,#where_predicates
         {
-            fn inject(provider: &NjectProvider) -> #ident<#(#generic_keys),*> {
+            fn inject(provider: &'prov NjectProvider) -> #ident<#(#generic_keys),*> {
                 #creation_output
             }
         }
@@ -89,11 +105,75 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
         use nject::Provider as _;
         #input
 
-        impl<#(#generic_params,)*Njecty> nject::Provider<Njecty> for #ident<#(#generic_keys),*>
-            where Njecty: nject::Injectable<Njecty, #ident<#(#generic_keys),*>>,#where_predicates
+        impl<'prov, #(#generic_params,)*Njecty> nject::Provider<'prov, Njecty> for #ident<#(#generic_keys),*>
+            where Njecty: nject::Injectable<'prov, Njecty, #ident<#(#generic_keys),*>>,#where_predicates
         {
-            fn provide(&self) -> Njecty {
+            fn provide(&'prov self) -> Njecty {
                 Njecty::inject(self)
+            }
+        }
+
+        impl<#(#generic_params),*> #ident<#(#generic_keys),*>
+            where #where_predicates
+        {
+            pub fn inject<'prov, Njecty>(&'prov self) -> Njecty
+                where Njecty: nject::Injectable<'prov, Njecty, #ident<#(#generic_keys),*>>
+            {
+                Njecty::inject(self)
+            }
+        }
+    };
+    output.into()
+}
+
+struct TypeExpr(Type, Expr);
+impl Parse for TypeExpr {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let parsed_type = input.parse().unwrap();
+        input.parse::<Token![,]>().unwrap();
+        let parsed_value: Expr = input.parse().unwrap();
+        return Ok(TypeExpr(parsed_type, parsed_value));
+    }
+}
+
+#[proc_macro_attribute]
+pub fn provide(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let attributes: TypeExpr = syn::parse(attr).unwrap();
+    let input = parse_macro_input!(item as DeriveInput);
+    let ident = &input.ident;
+    let generic_params = &input.generics.params.iter().collect::<Vec<&GenericParam>>();
+    let generic_keys = &generic_params
+        .iter()
+        .map(|p| match p {
+            GenericParam::Type(t) => {
+                let identity = &t.ident;
+                quote! { #identity }
+            }
+            GenericParam::Const(c) => {
+                let identity = &c.ident;
+                quote! { #identity }
+            }
+            GenericParam::Lifetime(l) => quote! { #l },
+        })
+        .collect::<Vec<_>>();
+    let where_predicates = match &input.generics.where_clause {
+        Some(w) => {
+            let predicates = &w.predicates;
+            quote! { #predicates }
+        }
+        None => quote! {},
+    };
+    let output_type = &attributes.0;
+    let output_value = &attributes.1;
+    let output = quote! {
+        use nject::Provider as _;
+        #input
+
+        impl<'prov, #(#generic_params),*> nject::Provider<'prov, #output_type> for #ident<#(#generic_keys),*>
+            where #where_predicates
+        {
+            fn provide(&'prov self) -> #output_type {
+                #output_value
             }
         }
     };

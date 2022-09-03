@@ -1,13 +1,18 @@
 use std::rc::Rc;
 
-use nject::{injectable, provider};
+use nject::{injectable, provide, provider};
 mod common;
 pub use common::*;
 
 #[provider]
+#[provide(&'a StructWithoutDeps, self.lifetime)]
+#[provide(Box<dyn Greeter>, Box::<GreeterOne>::new(self.provide()))]
+#[provide(Rc<i32>, self.shared_rc.clone())]
+#[provide(&'prov dyn Greeter, &self.greeter)]
 struct Provider<'a> {
     lifetime: &'a StructWithoutDeps,
     shared_rc: Rc<i32>,
+    greeter: GreeterTwo,
 }
 
 impl<'a> Provider<'a> {
@@ -15,25 +20,8 @@ impl<'a> Provider<'a> {
         Self {
             lifetime: &StructWithoutDeps,
             shared_rc: Rc::new(123),
+            greeter: GreeterTwo,
         }
-    }
-}
-
-impl<'a> nject::Provider<&'a StructWithoutDeps> for Provider<'a> {
-    fn provide(&self) -> &'a StructWithoutDeps {
-        self.lifetime
-    }
-}
-
-impl<'a> nject::Provider<Box<dyn Greeter>> for Provider<'a> {
-    fn provide(&self) -> Box<dyn Greeter> {
-        Box::<GreeterOne>::new(self.provide())
-    }
-}
-
-impl<'a> nject::Provider<Rc<i32>> for Provider<'a> {
-    fn provide(&self) -> Rc<i32> {
-        self.shared_rc.clone()
     }
 }
 
@@ -71,6 +59,16 @@ fn provide_shared_rc_should_give_same_instance() {
     let shared_two: Rc<i32> = provider.provide();
     // Then
     assert!(Rc::ptr_eq(&shared_one, &shared_two));
+}
+
+#[test]
+fn provide_ref_dyn_trait_without_boxing_should_give_corresponding_ref() {
+    // Given
+    let provider = Provider::new();
+    // When
+    let greeter: &dyn Greeter = provider.provide();
+    // Then
+    assert_eq!(greeter.greet(), GreeterTwo.greet());
 }
 
 trait Greeter {
