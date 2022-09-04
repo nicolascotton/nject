@@ -4,7 +4,7 @@ Simple zero cost dependency injection library made for rust
 Add the following to your `Cargo.toml`:
 ```toml
 [dependencies]
-nject = { version = "0.1" }
+nject = "0.1"
 ```
 ## Use cases
 ### Removes the need to specify dependencies across your modules
