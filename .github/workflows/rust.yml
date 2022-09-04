@@ -21,5 +21,3 @@ jobs:
         run: cargo test --verbose
       - name: Build examples
         run: (cd examples; cargo build --verbose)
-      - name: Run examples tests
-        run: (cd examples; cargo test --verbose)
