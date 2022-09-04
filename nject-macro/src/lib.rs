@@ -1,35 +1,37 @@
-#![feature(proc_macro_diagnostic)]
-use proc_macro::{Diagnostic, Level, TokenStream};
+use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input,
-    spanned::Spanned,
-    DeriveInput, Expr, ExprParen, GenericParam, Ident, Token, Type,
+    parse_macro_input, DeriveInput, Expr, ExprParen, GenericParam, Ident, Token, Type,
 };
 
 /// For internal purposes only. Should not be used.
 #[proc_macro_derive(InjectableHelperAttr, attributes(inject))]
-pub fn derive_injectable(_item: TokenStream) -> TokenStream {
+pub fn injectable_helper_attr(_item: TokenStream) -> TokenStream {
     TokenStream::new()
 }
 
 /// Attribute to mark a struct as injectable.
+/// ```rust
+/// use nject_macro::{injectable, provider};
+///
+/// #[injectable]
+/// struct Facade;
+///
+/// #[provider]
+/// struct Provider;
+///
+/// fn main() {
+///     let _facade: Facade = Provider.provide();
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
     let ident = &input.ident;
     let fields = match &input.data {
         syn::Data::Struct(d) => &d.fields,
-        _ => {
-            Diagnostic::spanned(
-                input.span().unwrap(),
-                Level::Error,
-                "Unsupported type. Macro should be used on a struct",
-            )
-            .emit();
-            panic!();
-        }
+        _ => panic!("Unsupported type. Macro should be used on a struct"),
     };
     let types = fields.iter().map(|f| &f.ty).collect::<Vec<&Type>>();
     let keys = fields
@@ -120,7 +122,25 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     output.into()
 }
 
-/// Attribute to specify the injected value of a struct.
+/// Attribute to specify a desired injected value.
+/// ```rust
+/// use nject_macro::{inject, injectable, provider};
+///
+/// #[inject(Self { value: 42 })]
+/// struct DepOne {
+///     value: i32,
+/// }
+///
+/// #[injectable]
+/// struct Facade(DepOne, #[inject(123)] i32);
+///
+/// #[provider]
+/// struct Provider;
+///
+/// fn main() {
+///     let _facade: Facade = Provider.provide();
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
@@ -175,7 +195,20 @@ pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
     output.into()
 }
 
-/// Attribute to mark a struct as provider.
+/// Attribute to mark a struct as a provider.
+/// ```rust
+/// use nject_macro::{injectable, provider};
+///
+/// #[injectable]
+/// struct Facade;
+///
+/// #[provider]
+/// struct Provider;
+///
+/// fn main() {
+///     let _facade: Facade = Provider.provide();
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
@@ -237,7 +270,26 @@ impl Parse for TypeExpr {
     }
 }
 
-/// Attribute to provide a given instance for a type.
+/// Attribute to provide a given instance for a specific type.
+/// ```rust
+/// use nject_macro::{injectable, provide, provider};
+///
+/// struct Dependency {
+///     value: i32,
+/// }
+///
+/// #[injectable]
+/// struct Facade(Dependency);
+///
+/// #[provider]
+/// #[provide(Dependency, Dependency { value: 123 })]
+/// struct Provider;
+///
+/// fn main() {
+///     let _dependency: Dependency = Provider.provide();
+///     let _facade: Facade = Provider.provide();
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn provide(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attributes: TypeExpr = syn::parse(attr).unwrap();
