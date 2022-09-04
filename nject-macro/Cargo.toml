@@ -2,6 +2,13 @@
 name = "nject-macro"
 version = "0.1.0"
 edition = "2021"
+description = "Zero cost dependency injection macros"
+rust-version = "1.60"
+homepage = "https://github.com/nicolascotton/nject"
+keywords = ["dependency", "injection", "macro"]
+license = "MIT"
+readme = "../README.md"
+repository = "https://github.com/nicolascotton/nject"
 
 [lib]
 proc-macro = true
@@ -11,3 +18,6 @@ proc-macro = true
 [dependencies]
 syn = "1.0"
 quote = "1.0"
+
+[dev-dependencies]
+nject = { path = "../nject", version = "0.1", default-features = false }

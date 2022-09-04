@@ -1,5 +1,5 @@
 # nject ![Rust](https://github.com/nicolascotton/nject/workflows/Rust/badge.svg)
-Simple zero cost injection library made for rust
+Simple zero cost dependency injection library made for rust
 ## Install
 Add the following to your `Cargo.toml`:
 ```toml
@@ -152,8 +152,37 @@ fn main() {
     let _prod_facade: Facade = Provider(&ProdGreeter).inject();
 }
 ```
+### Easily inject non-injectable dependencies
+```rust
+use nject::{inject, injectable, provide, provider};
+
+#[inject(Self { non_injectable_value: 123 })]
+struct NonInjectableWithInjectAttr {
+    non_injectable_value: i32,
+}
+
+struct NonInjectable {
+    non_injectable_value: i32,
+}
+
+#[injectable]
+struct Facade {
+    dep_from_injected: NonInjectableWithInjectAttr,
+    #[inject(NonInjectable { non_injectable_value: 456 })]
+    dep_from_inject_attr: NonInjectable,
+    #[inject(NonInjectableWithInjectAttr { non_injectable_value: 789 })]
+    dep_from_inject_attr_override: NonInjectableWithInjectAttr,
+}
+
+#[provider]
+struct Provider;
+
+fn main() {
+    let _facade = Provider.inject::<Facade>();
+}
+```
 ## Examples
-You can look into the [axum example](https://github.com/nicolascotton/nject/tree/main/examples/axum) for a web API use case.
+You can look into the [axum](https://github.com/nicolascotton/nject/tree/main/examples/axum) example for a web API use case.
 ## Credits
 - [Syn](https://github.com/dtolnay/syn) - [MIT](https://github.com/dtolnay/syn/blob/master/LICENSE-MIT) or [Apache-2.0](https://github.com/dtolnay/syn/blob/master/LICENSE-APACHE)
 - [Quasi-Quoting](https://github.com/dtolnay/quote) - [MIT](https://github.com/dtolnay/quote/blob/master/LICENSE-MIT) or [Apache-2.0](https://github.com/dtolnay/quote/blob/master/LICENSE-APACHE)
