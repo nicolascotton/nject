@@ -1,17 +1,35 @@
-use proc_macro::TokenStream;
+#![feature(proc_macro_diagnostic)]
+use proc_macro::{Diagnostic, Level, TokenStream};
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input, DeriveInput, Expr, GenericParam, Ident, Token, Type,
+    parse_macro_input,
+    spanned::Spanned,
+    DeriveInput, Expr, ExprParen, GenericParam, Ident, Token, Type,
 };
 
+/// For internal purposes only. Should not be used.
+#[proc_macro_derive(InjectableHelperAttr, attributes(inject))]
+pub fn derive_injectable(_item: TokenStream) -> TokenStream {
+    TokenStream::new()
+}
+
+/// Attribute to mark a struct as injectable.
 #[proc_macro_attribute]
 pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
     let ident = &input.ident;
     let fields = match &input.data {
         syn::Data::Struct(d) => &d.fields,
-        _ => panic!("Unsupported type. Macro should be used on a struct."),
+        _ => {
+            Diagnostic::spanned(
+                input.span().unwrap(),
+                Level::Error,
+                "Unsupported type. Macro should be used on a struct",
+            )
+            .emit();
+            panic!();
+        }
     };
     let types = fields.iter().map(|f| &f.ty).collect::<Vec<&Type>>();
     let keys = fields
@@ -19,6 +37,15 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         .map(|f| f.ident.as_ref())
         .filter_map(|i| i)
         .collect::<Vec<&Ident>>();
+    let attributes = fields
+        .iter()
+        .map(
+            |f| match f.attrs.iter().filter(|a| a.path.is_ident("inject")).last() {
+                Some(a) => Some(syn::parse2::<ExprParen>(a.tokens.clone()).unwrap().expr),
+                None => None,
+            },
+        )
+        .collect::<Vec<_>>();
     let generic_params = &input.generics.params.iter().collect::<Vec<&GenericParam>>();
     let generic_keys = &generic_params
         .iter()
@@ -54,18 +81,36 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     };
     let creation_output = match keys.is_empty() && !types.is_empty() {
         true => {
-            let items = types.iter().map(|_| quote! { provider.provide() });
+            let items = types.iter().zip(&attributes).map(|(_, a)| match a {
+                Some(attr) => quote! { #attr },
+                None => quote! { provider.provide() },
+            });
             quote! { #ident(#(#items),*) }
         }
-        false => quote! { #ident { #(#keys: provider.provide()),* } },
+        false => {
+            let items = keys.iter().zip(&attributes).map(|(k, a)| match a {
+                Some(attr) => quote! { #k: #attr },
+                None => quote! { #k: provider.provide() },
+            });
+            quote! { #ident { #(#items),* } }
+        }
     };
+    let prov_types = types
+        .iter()
+        .zip(&attributes)
+        .filter_map(|(t, a)| match a {
+            Some(_) => None,
+            None => Some(t),
+        })
+        .collect::<Vec<_>>();
     let output = quote! {
+        #[derive(nject::InjectableHelperAttr)]
         #input
 
         impl<'prov, #(#generic_params,)*NjectProvider> nject::Injectable<'prov, #ident<#(#generic_keys),*>, NjectProvider> for #ident<#(#generic_keys),*>
             where
                 #prov_lifetimes
-                NjectProvider: #(nject::Provider<'prov, #types>)+*,#where_predicates
+                NjectProvider: #(nject::Provider<'prov, #prov_types>)+*,#where_predicates
         {
             fn inject(provider: &'prov NjectProvider) -> #ident<#(#generic_keys),*> {
                 #creation_output
@@ -75,6 +120,62 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     output.into()
 }
 
+/// Attribute to specify the injected value of a struct.
+#[proc_macro_attribute]
+pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as DeriveInput);
+    let creation_output = parse_macro_input!(attr as Expr);
+    let ident = &input.ident;
+    let generic_params = &input.generics.params.iter().collect::<Vec<&GenericParam>>();
+    let generic_keys = &generic_params
+        .iter()
+        .map(|p| match p {
+            GenericParam::Type(t) => {
+                let identity = &t.ident;
+                quote! { #identity }
+            }
+            GenericParam::Const(c) => {
+                let identity = &c.ident;
+                quote! { #identity }
+            }
+            GenericParam::Lifetime(l) => quote! { #l },
+        })
+        .collect::<Vec<_>>();
+    let lifetime_keys = &generic_params
+        .iter()
+        .filter_map(|p| match p {
+            GenericParam::Lifetime(l) => Some(quote! { #l }),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let prov_lifetimes = match lifetime_keys.len() > 0 {
+        true => quote! { 'prov: #(#lifetime_keys)+*, },
+        false => quote! {},
+    };
+    let where_predicates = match &input.generics.where_clause {
+        Some(w) => {
+            let predicates = &w.predicates;
+            quote! { #predicates }
+        }
+        None => quote! {},
+    };
+    let output = quote! {
+        #input
+
+        impl<'prov, #(#generic_params,)*NjectProvider> nject::Injectable<'prov, #ident<#(#generic_keys),*>, NjectProvider> for #ident<#(#generic_keys),*>
+            where
+                #prov_lifetimes
+                #where_predicates
+        {
+            fn inject(provider: &'prov NjectProvider) -> #ident<#(#generic_keys),*> {
+                #creation_output
+            }
+        }
+    };
+    output.into()
+}
+
+/// Attribute to mark a struct as provider.
 #[proc_macro_attribute]
 pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
@@ -136,6 +237,7 @@ impl Parse for TypeExpr {
     }
 }
 
+/// Attribute to provide a given instance for a type.
 #[proc_macro_attribute]
 pub fn provide(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attributes: TypeExpr = syn::parse(attr).unwrap();
