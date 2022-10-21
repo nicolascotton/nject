@@ -41,7 +41,7 @@ async fn create_user(
     State(prov): State<Arc<Provider>>,
     Json(user): Json<CreateUser>,
 ) -> impl IntoResponse {
-    let service = prov.inject::<UserService>();
+    let service = prov.provide::<UserService>();
     let user = service.create(user);
     (StatusCode::CREATED, Json(user))
 }
@@ -50,7 +50,7 @@ async fn get_user(
     State(prov): State<Arc<Provider>>,
     Path(user_id): Path<usize>,
 ) -> impl IntoResponse {
-    let service = prov.inject::<UserService>();
+    let service = prov.provide::<UserService>();
     let user = service.get(user_id);
     (StatusCode::OK, Json(user))
 }

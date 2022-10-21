@@ -236,7 +236,6 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
         None => quote! {},
     };
     let output = quote! {
-        use nject::Provider as _;
         #input
 
         impl<'prov, #(#generic_params,)*Njecty> nject::Provider<'prov, Njecty> for #ident<#(#generic_keys),*>
@@ -250,10 +249,10 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
         impl<#(#generic_params),*> #ident<#(#generic_keys),*>
             where #where_predicates
         {
-            pub fn inject<'prov, Njecty>(&'prov self) -> Njecty
-                where Njecty: nject::Injectable<'prov, Njecty, #ident<#(#generic_keys),*>>
+            pub fn provide<'prov, Njecty>(&'prov self) -> Njecty
+                where Self: nject::Provider<'prov, Njecty>
             {
-                Njecty::inject(self)
+                <Self as nject::Provider<'prov, Njecty>>::provide(self)
             }
         }
     };
@@ -320,7 +319,6 @@ pub fn provide(attr: TokenStream, item: TokenStream) -> TokenStream {
     let output_type = &attributes.0;
     let output_value = &attributes.1;
     let output = quote! {
-        use nject::Provider as _;
         #input
 
         impl<'prov, #(#generic_params),*> nject::Provider<'prov, #output_type> for #ident<#(#generic_keys),*>

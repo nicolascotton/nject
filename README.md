@@ -4,7 +4,7 @@ Simple zero cost dependency injection library made for rust
 Add the following to your `Cargo.toml`:
 ```toml
 [dependencies]
-nject = "0.1"
+nject = "0.2"
 ```
 ## Use cases
 ### Removes the need to specify dependencies across your modules
@@ -28,7 +28,7 @@ struct Facade {
 struct Provider;
 
 fn main() {
-    let _facade: Facade = Provider.inject();
+    let _facade: Facade = Provider.provide();
 }
 
 ```
@@ -52,7 +52,7 @@ struct Provider<'a> {
 
 fn main() {
     let provider = Provider { shared: &DepOne };
-    let _facade: Facade = provider.inject();
+    let _facade: Facade = provider.provide();
 }
 
 ```
@@ -80,7 +80,7 @@ struct Facade<'a> {
 }
 
 #[provider]
-#[provide(Box<dyn Greeter>, Box::<GreeterOne>::new(self.inject()))]
+#[provide(Box<dyn Greeter>, Box::<GreeterOne>::new(self.provide()))]
 #[provide(&'prov dyn Greeter, &self.greeter)]
 struct Provider {
     greeter: GreeterOne,
@@ -88,7 +88,7 @@ struct Provider {
 
 fn main() {
     let provider = Provider { greeter: GreeterOne };
-    let _facade: Facade = provider.inject();
+    let _facade: Facade = provider.provide();
 }
 
 ```
@@ -108,7 +108,7 @@ struct Facade<T> {
 struct Provider;
 
 fn main() {
-    let _facade: Facade<DepOne> = Provider.inject();
+    let _facade: Facade<DepOne> = Provider.provide();
 }
 
 ```
@@ -148,8 +148,8 @@ struct Facade<'a> {
 struct Provider<'a, T: Greeter>(&'a T);
 
 fn main() {
-    let _dev_facade: Facade = Provider(&DevGreeter).inject();
-    let _prod_facade: Facade = Provider(&ProdGreeter).inject();
+    let _dev_facade: Facade = Provider(&DevGreeter).provide();
+    let _prod_facade: Facade = Provider(&ProdGreeter).provide();
 }
 ```
 ### Easily inject non-injectable dependencies
@@ -178,7 +178,7 @@ struct Facade {
 struct Provider;
 
 fn main() {
-    let _facade = Provider.inject::<Facade>();
+    let _facade = Provider.provide::<Facade>();
 }
 ```
 ## Examples
