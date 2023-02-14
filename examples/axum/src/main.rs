@@ -23,11 +23,12 @@ pub struct Provider {
 
 #[tokio::main]
 async fn main() {
-    let app = Router::with_state(Arc::new(Provider {
-        repository: MemoryRepository::new(),
-    }))
-    .route("/api/users", post(create_user))
-    .route("/api/users/:id", get(get_user));
+    let app = Router::new()
+        .route("/api/users", post(create_user))
+        .route("/api/users/:id", get(get_user))
+        .with_state(Arc::new(Provider {
+            repository: MemoryRepository::new(),
+        }));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     println!("listening on {}", addr);
