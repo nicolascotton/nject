@@ -1,6 +1,6 @@
 [package]
 name = "nject"
-version = "0.2.0"
+version = "0.2.2"
 edition = "2021"
 description = "Zero cost dependency injection module"
 rust-version = "1.60"
