@@ -1,4 +1,4 @@
-#![doc = include_str!("../../README.md")]
+#![doc = include_str!("../README.md")]
 
 #[cfg(feature = "macro")]
 pub use nject_macro::{inject, injectable, provide, provider, InjectableHelperAttr};
