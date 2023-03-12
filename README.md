@@ -157,7 +157,7 @@ fn main() {
 use nject::{inject, injectable, provide, provider};
 
 #[inject(Self { non_injectable_value: 123 })]
-struct NonInjectableWithInjectAttr {
+struct InjectableFromInjectAttr {
     non_injectable_value: i32,
 }
 
@@ -165,13 +165,22 @@ struct NonInjectable {
     non_injectable_value: i32,
 }
 
+#[inject(Self { non_injectable_value: injectable_dep.non_injectable_value + 10, injectable_dep }, injectable_dep: InjectableFromInjectAttr)]
+struct PartiallyInjectable {
+    non_injectable_value: i32,
+    injectable_dep: InjectableFromInjectAttr
+}
+
 #[injectable]
 struct Facade {
-    dep_from_injected: NonInjectableWithInjectAttr,
+    dep_from_injected: InjectableFromInjectAttr,
+    dep_from_partial_inject: PartiallyInjectable,
     #[inject(NonInjectable { non_injectable_value: 456 })]
     dep_from_inject_attr: NonInjectable,
-    #[inject(NonInjectableWithInjectAttr { non_injectable_value: 789 })]
-    dep_from_inject_attr_override: NonInjectableWithInjectAttr,
+    #[inject(InjectableFromInjectAttr { non_injectable_value: 789 })]
+    dep_from_inject_attr_override: InjectableFromInjectAttr,
+    #[inject(PartiallyInjectable { non_injectable_value: 111, injectable_dep }, injectable_dep: InjectableFromInjectAttr)]
+    dep_from_partial_inject_attr_override: PartiallyInjectable,
 }
 
 #[provider]

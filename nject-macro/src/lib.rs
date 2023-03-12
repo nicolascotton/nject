@@ -2,14 +2,32 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
+    parenthesized,
     parse::{Parse, ParseStream},
-    parse_macro_input, DeriveInput, Expr, ExprParen, GenericParam, Ident, Token, Type,
+    parse_macro_input,
+    punctuated::Punctuated,
+    DeriveInput, Expr, ExprType, GenericParam, Ident, Token, Type,
 };
 
 /// For internal purposes only. Should not be used.
 #[proc_macro_derive(InjectableHelperAttr, attributes(inject))]
 pub fn injectable_helper_attr(_item: TokenStream) -> TokenStream {
     TokenStream::new()
+}
+
+struct InjectHelperExpr(Expr, Punctuated<ExprType, Token![,]>);
+impl Parse for InjectHelperExpr {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let content;
+        parenthesized!(content in input);
+        let parsed_type = content.parse()?;
+        if content.parse::<Token![,]>().is_ok() {
+            let parsed_value = Punctuated::parse_separated_nonempty(&content)?;
+            Ok(Self(parsed_type, parsed_value))
+        } else {
+            Ok(Self(parsed_type, Punctuated::new()))
+        }
+    }
 }
 
 /// Attribute to mark a struct as injectable.
@@ -44,7 +62,7 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         .iter()
         .map(
             |f| match f.attrs.iter().filter(|a| a.path.is_ident("inject")).last() {
-                Some(a) => Some(syn::parse2::<ExprParen>(a.tokens.clone()).unwrap().expr),
+                Some(a) => Some(syn::parse2::<InjectHelperExpr>(a.tokens.clone()).unwrap()),
                 None => None,
             },
         )
@@ -85,27 +103,60 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let creation_output = match keys.is_empty() && !types.is_empty() {
         true => {
             let items = types.iter().zip(&attributes).map(|(_, a)| match a {
-                Some(attr) => quote! { #attr },
+                Some(attr) => {
+                    let inputs = attr
+                        .1
+                        .iter()
+                        .map(|x| quote! { let #x = provider.provide(); })
+                        .collect::<Vec<_>>();
+                    let output = &attr.0;
+                    if inputs.is_empty() {
+                        quote! { #output }
+                    } else {
+                        quote! {
+                            {
+                                #(#inputs)*
+                                #output
+                            }
+                        }
+                    }
+                }
                 None => quote! { provider.provide() },
             });
             quote! { #ident(#(#items),*) }
         }
         false => {
             let items = keys.iter().zip(&attributes).map(|(k, a)| match a {
-                Some(attr) => quote! { #k: #attr },
+                Some(attr) => {
+                    let inputs = attr
+                        .1
+                        .iter()
+                        .map(|x| quote! { let #x = provider.provide(); })
+                        .collect::<Vec<_>>();
+                    let output = &attr.0;
+                    quote! {
+                        #k: {
+                            #(#inputs)*
+                            #output
+                        }
+                    }
+                }
                 None => quote! { #k: provider.provide() },
             });
             quote! { #ident { #(#items),* } }
         }
     };
-    let prov_types = types
-        .iter()
-        .zip(&attributes)
-        .filter_map(|(t, a)| match a {
-            Some(_) => None,
-            None => Some(t),
-        })
-        .collect::<Vec<_>>();
+    let mut prov_types = Vec::<Type>::with_capacity(types.len());
+    for (t, a) in types.iter().zip(&attributes) {
+        if let Some(attr) = a {
+            for attr_type in attr.1.iter().map(|x| &x.ty) {
+                prov_types.push(attr_type.as_ref().clone());
+            }
+        } else {
+            prov_types.push((*t).clone());
+        }
+    }
+    prov_types.dedup_by(|a, b| quote! { #a }.to_string() == quote! { #b }.to_string());
     let output = quote! {
         #[derive(nject::InjectableHelperAttr)]
         #input
@@ -123,6 +174,19 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     output.into()
 }
 
+struct InjectExpr(Expr, Punctuated<ExprType, Token![,]>);
+impl Parse for InjectExpr {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let parsed_type = input.parse()?;
+        if input.parse::<Token![,]>().is_ok() {
+            let parsed_value = Punctuated::parse_separated_nonempty(input)?;
+            Ok(InjectExpr(parsed_type, parsed_value))
+        } else {
+            Ok(InjectExpr(parsed_type, Punctuated::new()))
+        }
+    }
+}
+
 /// Attribute to specify a desired injected value.
 /// ```rust
 /// use nject_macro::{inject, injectable, provider};
@@ -132,8 +196,11 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 ///     value: i32,
 /// }
 ///
+/// #[inject(Self(12, injectable_dep), injectable_dep: DepOne)]
+/// struct DepTwo(i32, DepOne);
+///
 /// #[injectable]
-/// struct Facade(DepOne, #[inject(123)] i32);
+/// struct Facade(DepOne, DepTwo, #[inject(123)] i32);
 ///
 /// #[provider]
 /// struct Provider;
@@ -145,7 +212,7 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
-    let creation_output = parse_macro_input!(attr as Expr);
+    let attributes: InjectExpr = syn::parse(attr).unwrap();
     let ident = &input.ident;
     let generic_params = &input.generics.params.iter().collect::<Vec<&GenericParam>>();
     let generic_keys = &generic_params
@@ -173,6 +240,7 @@ pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
         true => quote! { 'prov: #(#lifetime_keys)+*, },
         false => quote! {},
     };
+    let prov_types = attributes.1.iter().map(|x| &x.ty).collect::<Vec<_>>();
     let where_predicates = match &input.generics.where_clause {
         Some(w) => {
             let predicates = &w.predicates;
@@ -180,13 +248,23 @@ pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
         None => quote! {},
     };
+    let prov_input = attributes
+        .1
+        .iter()
+        .map(|x| quote! { let #x = provider.provide(); })
+        .collect::<Vec<_>>();
+    let factory = attributes.0;
+    let creation_output = quote! {
+       #(#prov_input)*
+       #factory
+    };
     let output = quote! {
         #input
 
         impl<'prov, #(#generic_params,)*NjectProvider> nject::Injectable<'prov, #ident<#(#generic_keys),*>, NjectProvider> for #ident<#(#generic_keys),*>
             where
                 #prov_lifetimes
-                #where_predicates
+                NjectProvider: #(nject::Provider<'prov, #prov_types>)+*,#where_predicates
         {
             fn inject(provider: &'prov NjectProvider) -> #ident<#(#generic_keys),*> {
                 #creation_output
@@ -263,9 +341,9 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
 struct TypeExpr(Type, Expr);
 impl Parse for TypeExpr {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let parsed_type = input.parse().unwrap();
-        input.parse::<Token![,]>().unwrap();
-        let parsed_value: Expr = input.parse().unwrap();
+        let parsed_type = input.parse()?;
+        input.parse::<Token![,]>()?;
+        let parsed_value: Expr = input.parse()?;
         return Ok(TypeExpr(parsed_type, parsed_value));
     }
 }

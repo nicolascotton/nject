@@ -129,6 +129,40 @@ fn provide_struct_with_non_injectable_unnnamed_deps_and_inject_annotation_should
     );
 }
 
+#[test]
+fn provide_struct_with_inject_factory_and_additionnal_injectable_inputs_should_give_corresponding_struct(
+) {
+    // Given
+    let provider = Provider {};
+    // When
+    let value: PartiallyInjectableStruct = provider.provide();
+    // Then
+    assert_eq!(
+        value,
+        PartiallyInjectableStruct {
+            value: 123,
+            injectable_dep: StructWithoutDeps
+        }
+    );
+}
+
+#[test]
+fn provide_struct_with_inject_factory_and_additionnal_injectable_inputs_on_field_should_give_corresponding_struct(
+) {
+    // Given
+    let provider = Provider {};
+    // When
+    let value: StructWithPartiallyInjectableDepAndInjectAttr = provider.provide();
+    // Then
+    assert_eq!(
+        value,
+        StructWithPartiallyInjectableDepAndInjectAttr(PartiallyInjectableStruct {
+            value: 111,
+            injectable_dep: StructWithoutDeps
+        })
+    );
+}
+
 #[injectable]
 #[derive(Debug, PartialEq)]
 struct StructWithNonInjectableNamedDeps {
@@ -139,6 +173,13 @@ struct StructWithNonInjectableNamedDeps {
 #[derive(Debug, PartialEq)]
 struct NonInjectableStruct {
     value: i32,
+}
+
+#[inject(Self { value: 123, injectable_dep: dep }, dep: StructWithoutDeps)]
+#[derive(Debug, PartialEq)]
+struct PartiallyInjectableStruct {
+    value: i32,
+    injectable_dep: StructWithoutDeps,
 }
 
 #[injectable]
@@ -158,4 +199,11 @@ struct StructWithNonInjectableUnnamedDeps(NonInjectableStruct);
 struct StructWithNonInjectableUnnamedDepsAndInjectAttr(
     #[inject( NonInjectableStruct { value: 456 })] NonInjectableStruct,
     StructWithoutDeps,
+);
+
+#[injectable]
+#[derive(Debug, PartialEq)]
+struct StructWithPartiallyInjectableDepAndInjectAttr(
+    #[inject(PartiallyInjectableStruct { value: 111, injectable_dep }, injectable_dep: StructWithoutDeps)]
+     PartiallyInjectableStruct,
 );
