@@ -19,8 +19,9 @@ jobs:
         run: cargo build --verbose
       - name: Run tests
         run: cargo test --verbose
-      - name: Build examples
+      - name: Using nightly rust for examples
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
+      - name: Build examples
         run: (cd examples; cargo +nightly build --verbose)
