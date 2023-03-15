@@ -13,3 +13,7 @@ Cargo.lock
 # Added by cargo
 
 target/
+
+# Added by trunk
+
+dist/

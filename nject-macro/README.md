@@ -7,7 +7,7 @@ Add the following to your `Cargo.toml`:
 nject = "0.2"
 ```
 ## Why `nject`?
-- **zero cost**: Using this library is equivalent to manually injecting your dependencies as shown in the [benchmarks](https://github.com/nicolascotton/nject/tree/main/examples/benchmark).
+- **Zero cost**: Using this library is equivalent to manually injecting your dependencies as shown in the [benchmarks](https://github.com/nicolascotton/nject/tree/main/examples/benchmark).
 - **Compile time only**: If configured incorrectly, `nject` will fail at compile time.
 
 ## Use cases
@@ -195,7 +195,7 @@ fn main() {
 }
 ```
 ## Examples
-You can look into the [axum](https://github.com/nicolascotton/nject/tree/main/examples/axum) example for a web API use case.
+You can look into the [axum](https://github.com/nicolascotton/nject/tree/main/examples/axum) example for a Web API use case or into the [Leptos](https://github.com/nicolascotton/nject/tree/main/examples/leptos) example for a Web app.
 ## Credits
 - [Syn](https://github.com/dtolnay/syn) - [MIT](https://github.com/dtolnay/syn/blob/master/LICENSE-MIT) or [Apache-2.0](https://github.com/dtolnay/syn/blob/master/LICENSE-APACHE)
 - [Quasi-Quoting](https://github.com/dtolnay/quote) - [MIT](https://github.com/dtolnay/quote/blob/master/LICENSE-MIT) or [Apache-2.0](https://github.com/dtolnay/quote/blob/master/LICENSE-APACHE)
