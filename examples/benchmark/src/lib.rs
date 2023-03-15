@@ -1,9 +1,8 @@
-#![feature(test)]
-extern crate test;
+#![cfg_attr(test, feature(test))]
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    extern crate test;
     use nject::{inject, injectable, provide, provider};
     use test::Bencher;
 
