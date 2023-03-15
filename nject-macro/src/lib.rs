@@ -166,6 +166,7 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 #prov_lifetimes
                 NjectProvider: #(nject::Provider<'prov, #prov_types>)+*,#where_predicates
         {
+            #[inline]
             fn inject(provider: &'prov NjectProvider) -> #ident<#(#generic_keys),*> {
                 #creation_output
             }
@@ -266,6 +267,7 @@ pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #prov_lifetimes
                 NjectProvider: #(nject::Provider<'prov, #prov_types>)+*,#where_predicates
         {
+            #[inline]
             fn inject(provider: &'prov NjectProvider) -> #ident<#(#generic_keys),*> {
                 #creation_output
             }
@@ -320,6 +322,7 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
         impl<'prov, #(#generic_params,)*Njecty> nject::Provider<'prov, Njecty> for #ident<#(#generic_keys),*>
             where Njecty: nject::Injectable<'prov, Njecty, #ident<#(#generic_keys),*>>,#where_predicates
         {
+            #[inline]
             fn provide(&'prov self) -> Njecty {
                 Njecty::inject(self)
             }
@@ -328,6 +331,7 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
         impl<#(#generic_params),*> #ident<#(#generic_keys),*>
             where #where_predicates
         {
+            #[inline]
             pub fn provide<'prov, Njecty>(&'prov self) -> Njecty
                 where Self: nject::Provider<'prov, Njecty>
             {
@@ -403,6 +407,7 @@ pub fn provide(attr: TokenStream, item: TokenStream) -> TokenStream {
         impl<'prov, #(#generic_params),*> nject::Provider<'prov, #output_type> for #ident<#(#generic_keys),*>
             where #where_predicates
         {
+            #[inline]
             fn provide(&'prov self) -> #output_type {
                 #output_value
             }
