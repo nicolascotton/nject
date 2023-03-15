@@ -7,7 +7,7 @@ Add the following to your `Cargo.toml`:
 nject = "0.2"
 ```
 ## Why `nject`?
-- **zero cost**: Using this library is equivalent to manually injecting your dependencies as show in the [benchmarks](https://github.com/nicolascotton/nject/tree/main/examples/benchmark).
+- **zero cost**: Using this library is equivalent to manually injecting your dependencies as shown in the [benchmarks](https://github.com/nicolascotton/nject/tree/main/examples/benchmark).
 - **Compile time only**: If configured incorrectly, `nject` will fail at compile time.
 
 ## Use cases
