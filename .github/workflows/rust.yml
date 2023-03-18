@@ -16,12 +16,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Build
-        run: cargo build --verbose
+        run: cargo +stable build --verbose
       - name: Run tests
-        run: cargo test --verbose
+        run: cargo +stable test --verbose
       - name: Using nightly rust for examples
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
       - name: Build examples
-        run: (cd examples; cargo +nightly build --verbose)
+        run: cargo +nightly build --workspace --bins --verbose
