@@ -1,4 +1,29 @@
-# nject ![Rust](https://github.com/nicolascotton/nject/workflows/Rust/badge.svg)
+<div align="center">
+  <h1>nject</h1>
+</div>
+<div align="center">
+  <!-- Build status -->
+  <a href="https://github.com/nicolascotton/nject">
+    <img src="https://github.com/nicolascotton/nject/workflows/Rust/badge.svg" />
+  </a>
+  <!-- Crates version -->
+  <a href="https://crates.io/crates/nject">
+    <img src="https://img.shields.io/crates/v/nject.svg"
+    alt="Crates.io version" />
+  </a>
+  <!-- Downloads -->
+  <a href="https://crates.io/crates/nject">
+    <img src="https://img.shields.io/crates/d/nject.svg"
+      alt="Download" />
+  </a>
+  <!-- docs -->
+  <a href="https://docs.rs/nject">
+    <img src="https://img.shields.io/badge/docs-latest-blue.svg"
+      alt="docs.rs docs" />
+  </a>
+</div>
+<br />
+
 Simple zero cost dependency injection library made for rust
 ## Install
 Add the following to your `Cargo.toml`:
@@ -169,7 +194,10 @@ struct NonInjectable {
     non_injectable_value: i32,
 }
 
-#[inject(Self { non_injectable_value: injectable_dep.non_injectable_value + 10, injectable_dep }, injectable_dep: InjectableFromInjectAttr)]
+#[inject(Self { 
+    non_injectable_value: injectable_dep.non_injectable_value + 10, 
+    injectable_dep 
+}, injectable_dep: InjectableFromInjectAttr)]
 struct PartiallyInjectable {
     non_injectable_value: i32,
     injectable_dep: InjectableFromInjectAttr
@@ -183,7 +211,10 @@ struct Facade {
     dep_from_inject_attr: NonInjectable,
     #[inject(InjectableFromInjectAttr { non_injectable_value: 789 })]
     dep_from_inject_attr_override: InjectableFromInjectAttr,
-    #[inject(PartiallyInjectable { non_injectable_value: 111, injectable_dep }, injectable_dep: InjectableFromInjectAttr)]
+    #[inject(PartiallyInjectable {
+        non_injectable_value: 111, 
+        injectable_dep 
+    }, injectable_dep: InjectableFromInjectAttr)]
     dep_from_partial_inject_attr_override: PartiallyInjectable,
 }
 
