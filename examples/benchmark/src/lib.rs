@@ -53,6 +53,13 @@ mod tests {
     #[injectable]
     struct RefProvider(Dep1, Dep2, Dep3, Dep4, Dep5, Dep6, Dep7, Dep8, Dep9, Dep10);
 
+    #[provider]
+    struct ExtendedProvider(#[extend] Provider);
+
+    #[provider]
+    #[injectable]
+    struct ExtendedRefProvider(#[extend] RefProvider);
+
     const ITERATION_COUNT: i32 = 10000;
 
     #[bench]
@@ -80,6 +87,50 @@ mod tests {
     #[bench]
     fn nject_by_ref(b: &mut Bencher) {
         let provider = Provider.provide::<RefProvider>();
+        b.iter(move || {
+            let n = test::black_box(ITERATION_COUNT);
+            for _ in 0..n {
+                test::black_box((
+                    provider.provide::<&Dep1>(),
+                    provider.provide::<&Dep2>(),
+                    provider.provide::<&Dep3>(),
+                    provider.provide::<&Dep4>(),
+                    provider.provide::<&Dep5>(),
+                    provider.provide::<&Dep6>(),
+                    provider.provide::<&Dep7>(),
+                    provider.provide::<&Dep8>(),
+                    provider.provide::<&Dep9>(),
+                    provider.provide::<&Dep10>(),
+                ));
+            }
+        });
+    }
+
+    #[bench]
+    fn nject_extended_by_value(b: &mut Bencher) {
+        let provider = ExtendedProvider(Provider);
+        b.iter(move || {
+            let n = test::black_box(ITERATION_COUNT);
+            for _ in 0..n {
+                test::black_box((
+                    provider.provide::<Dep1>(),
+                    provider.provide::<Dep2>(),
+                    provider.provide::<Dep3>(),
+                    provider.provide::<Dep4>(),
+                    provider.provide::<Dep5>(),
+                    provider.provide::<Dep6>(),
+                    provider.provide::<Dep7>(),
+                    provider.provide::<Dep8>(),
+                    provider.provide::<Dep9>(),
+                    provider.provide::<Dep10>(),
+                ));
+            }
+        });
+    }
+
+    #[bench]
+    fn nject_extended_by_ref(b: &mut Bencher) {
+        let provider = Provider.provide::<ExtendedRefProvider>();
         b.iter(move || {
             let n = test::black_box(ITERATION_COUNT);
             for _ in 0..n {

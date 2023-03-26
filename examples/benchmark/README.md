@@ -1,13 +1,15 @@
 # Benchmark
 ## Run
-To run the benchmarks, use the following command on `nightly`:
+To run the benchmarks, use the following command:
 ```sh
-cargo bench
+cargo +nightly bench
 ```
 ## Output
 ```
-test tests::baseline_by_ref   ... bench:      10,614 ns/iter (+/- 1,318)
-test tests::baseline_by_value ... bench:     135,785 ns/iter (+/- 42,243)
-test tests::nject_by_ref      ... bench:      10,521 ns/iter (+/- 436)
-test tests::nject_by_value    ... bench:     135,441 ns/iter (+/- 24,549)
+test tests::baseline_by_ref         ... bench:      10,540 ns/iter (+/- 364)
+test tests::baseline_by_value       ... bench:     135,060 ns/iter (+/- 9,365)
+test tests::nject_by_ref            ... bench:      10,594 ns/iter (+/- 786)
+test tests::nject_by_value          ... bench:     135,058 ns/iter (+/- 6,818)
+test tests::nject_extended_by_ref   ... bench:      10,536 ns/iter (+/- 357)
+test tests::nject_extended_by_value ... bench:     134,745 ns/iter (+/- 5,582)
 ```

@@ -39,6 +39,7 @@ pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
     });
     let extends_info = fields_to_extend.flat_map(|(index, field, _attr)| {
         let provider_type = &field.ty;
+        let index = syn::Index::from(index);
         let field_name = match field.ident.as_ref() {
             Some(i) => quote! { #i },
             None => quote! { #index },
