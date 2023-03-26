@@ -43,6 +43,7 @@ pub(crate) fn handle_provide(attr: TokenStream, item: TokenStream) -> TokenStrea
     };
     let output_type = &attributes.0;
     let output_value = &attributes.1;
+    super::repository::provide::add(ident, output_type);
     let output = quote! {
         #input
 

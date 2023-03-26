@@ -1,4 +1,4 @@
-use nject::injectable;
+use nject::{injectable, provide, provider};
 
 #[injectable]
 #[derive(Debug, PartialEq)]
@@ -33,3 +33,7 @@ pub struct StructWithNamedDepAndLifetime<'a> {
 #[injectable]
 #[derive(Debug, PartialEq)]
 pub struct StructWithUnnamedDepAndLifetime<'a>(pub &'a StructWithoutDeps);
+
+#[provider]
+#[provide(i32, 11)]
+pub struct CommonProvider;

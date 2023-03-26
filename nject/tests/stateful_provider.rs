@@ -1,8 +1,7 @@
-use std::rc::Rc;
-
-use nject::{injectable, provide, provider};
 mod common;
-pub use common::*;
+use common::*;
+use nject::{injectable, provide, provider};
+use std::rc::Rc;
 
 #[provider]
 #[provide(&'a StructWithoutDeps, self.lifetime)]

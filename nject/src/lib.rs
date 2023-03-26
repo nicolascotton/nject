@@ -1,7 +1,9 @@
 #![doc = include_str!("../README.md")]
 
 #[cfg(feature = "macro")]
-pub use nject_macro::{inject, injectable, provide, provider, InjectableHelperAttr};
+pub use nject_macro::{
+    inject, injectable, provide, provider, InjectableHelperAttr, ProviderHelperAttr,
+};
 
 /// Provide a value for a specified type. Should be used with the `provide` macro for a better experience.
 /// ```rust

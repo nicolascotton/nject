@@ -1,6 +1,6 @@
-use nject::{inject, injectable, provider};
 mod common;
-pub use common::*;
+use common::*;
+use nject::{inject, injectable, provider};
 
 #[provider]
 struct Provider;

@@ -3,6 +3,7 @@ mod inject;
 mod injectable;
 mod provide;
 mod provider;
+mod repository;
 use inject::handle_inject;
 use injectable::handle_injectable;
 use proc_macro::TokenStream;
@@ -12,6 +13,12 @@ use provider::handle_provider;
 /// For internal purposes only. Should not be used.
 #[proc_macro_derive(InjectableHelperAttr, attributes(inject))]
 pub fn injectable_helper_attr(_item: TokenStream) -> TokenStream {
+    TokenStream::new()
+}
+
+/// For internal purposes only. Should not be used.
+#[proc_macro_derive(ProviderHelperAttr, attributes(extend))]
+pub fn provider_helper_attr(_item: TokenStream) -> TokenStream {
     TokenStream::new()
 }
 
