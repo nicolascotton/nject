@@ -44,7 +44,7 @@ pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
             Some(i) => quote! { #i },
             None => quote! { #index },
         };
-        let current_provider = super::repository::provider::Provider::from(provider_type);
+        let current_provider = super::repository::models::Provider::from(provider_type);
         let extend_provider = super::repository::provider::get_for_type(provider_type)
             .expect("Provider must be declared before any extend.");
         let subs_map = extend_provider.generic_substitution_map(&current_provider);
