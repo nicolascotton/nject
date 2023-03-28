@@ -17,7 +17,34 @@ fn extend_with_simple_value_provider_should_provide_value() {
     // When
     let value = prov.provide::<i32>();
     // Then
-    assert_eq!(value, SubProvider.provide::<i32>())
+    assert_eq!(value, SubProvider.provide::<i32>());
+}
+
+#[test]
+fn extend_with_extended_provider_should_provide_value() {
+    // Given
+    #[provider]
+    #[provide(i32, 123)]
+    struct SubSubProvider;
+
+    #[provider]
+    #[provide(f32, 1.23)]
+    struct SubProvider(#[extend] SubSubProvider);
+
+    #[provider]
+    struct Provider {
+        #[extend]
+        sub: SubProvider,
+    }
+    let prov = Provider {
+        sub: SubProvider(SubSubProvider),
+    };
+    // When
+    let ivalue = prov.provide::<i32>();
+    let fvalue = prov.provide::<f32>();
+    // Then
+    assert_eq!(ivalue, SubSubProvider.provide::<i32>());
+    assert_eq!(fvalue, SubProvider(SubSubProvider).provide::<f32>());
 }
 
 #[test]
@@ -34,7 +61,7 @@ fn extend_with_provider_from_other_module_should_provide_value() {
     // When
     let value = prov.provide::<i32>();
     // Then
-    assert_eq!(value, common::CommonProvider.provide::<i32>())
+    assert_eq!(value, common::CommonProvider.provide::<i32>());
 }
 
 #[test]
@@ -58,7 +85,7 @@ fn extend_with_generic_value_provider_should_provide_value() {
     assert_eq!(
         value,
         SubProvider(&DevGreeter).provide::<&dyn Greeter>().greet()
-    )
+    );
 }
 
 trait Greeter {

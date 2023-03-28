@@ -52,10 +52,9 @@ pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
         output_types
             .iter()
             .map(|p| {
-                (
-                    p.to_type_with_generics_substitutions(&subs_map),
-                    field_name.to_owned(),
-                )
+                let extended_output_type = p.to_type_with_generics_substitutions(&subs_map);
+                super::repository::provide::add(ident, &extended_output_type);
+                (extended_output_type, field_name.to_owned())
             })
             .collect::<Vec<_>>()
     });
