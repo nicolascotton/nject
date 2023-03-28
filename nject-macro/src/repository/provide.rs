@@ -1,15 +1,15 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use std::{collections::HashMap, sync::Mutex};
+use std::{collections::HashMap, sync::RwLock};
 use syn::{Ident, Path, Type};
 
 thread_local! {
-    static CACHE: Mutex<HashMap<String, Vec<ProvidedType>>> = Mutex::new(HashMap::new());
+    static CACHE: RwLock<HashMap<String, Vec<ProvidedType>>> = RwLock::new(HashMap::new());
 }
 
 fn update_cache(update: impl FnOnce(&mut HashMap<String, Vec<ProvidedType>>)) {
     CACHE.with(move |cache| {
-        let mut cache = cache.lock().unwrap();
+        let mut cache = cache.write().unwrap();
         update(&mut cache);
     });
 }
@@ -46,7 +46,7 @@ impl ProvidedType {
 
 fn get(key: &str) -> Vec<ProvidedType> {
     CACHE.with(move |cache| {
-        let cache = cache.lock().unwrap();
+        let cache = cache.read().unwrap();
         match cache.get(key) {
             Some(v) => v.clone(),
             None => Vec::new(),

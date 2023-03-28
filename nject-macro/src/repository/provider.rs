@@ -1,14 +1,14 @@
 use quote::quote;
-use std::{collections::HashMap, sync::Mutex};
+use std::{collections::HashMap, sync::RwLock};
 use syn::{DeriveInput, GenericParam, Path, Type};
 
 thread_local! {
-    static CACHE: Mutex<HashMap<String, Provider>> = Mutex::new(HashMap::new());
+    static CACHE: RwLock<HashMap<String, Provider>> = RwLock::new(HashMap::new());
 }
 
 fn update_cache(update: impl FnOnce(&mut HashMap<String, Provider>)) {
     CACHE.with(move |cache| {
-        let mut cache = cache.lock().unwrap();
+        let mut cache = cache.write().unwrap();
         update(&mut cache);
     });
 }
@@ -84,7 +84,7 @@ impl From<&Type> for Provider {
 
 fn get(key: &str) -> Option<Provider> {
     CACHE.with(move |cache| {
-        let cache = cache.lock().unwrap();
+        let cache = cache.read().unwrap();
         match cache.get(key) {
             Some(v) => Some(v.clone()),
             None => None,
