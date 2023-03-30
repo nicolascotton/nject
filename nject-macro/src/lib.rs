@@ -83,8 +83,8 @@ pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// }
 /// ```
 #[proc_macro_attribute]
-pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    handle_provider(item)
+pub fn provider(attr: TokenStream, item: TokenStream) -> TokenStream {
+    handle_provider(attr, item)
 }
 
 /// Attribute to provide a given instance for a specific type.

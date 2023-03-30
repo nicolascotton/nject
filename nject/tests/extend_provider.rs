@@ -1,8 +1,9 @@
 mod common;
+use common::CommonProvider as SharedProvider;
 use nject::{injectable, provide, provider};
 
 #[test]
-fn extend_with_simple_value_provider_should_provide_value() {
+fn provide_with_simple_extended_value_should_provide_value() {
     // Given
     #[provider]
     #[provide(i32, 123)]
@@ -21,7 +22,7 @@ fn extend_with_simple_value_provider_should_provide_value() {
 }
 
 #[test]
-fn extend_with_extended_provider_should_provide_value() {
+fn provide_with_extended_value_from_extended_provider_should_provide_value() {
     // Given
     #[provider]
     #[provide(i32, 123)]
@@ -48,7 +49,7 @@ fn extend_with_extended_provider_should_provide_value() {
 }
 
 #[test]
-fn extend_with_provider_from_other_module_should_provide_value() {
+fn provide_with_extended_value_in_provider_from_other_module_should_provide_value() {
     // Given
     #[provider]
     struct Provider {
@@ -65,7 +66,24 @@ fn extend_with_provider_from_other_module_should_provide_value() {
 }
 
 #[test]
-fn extend_with_generic_value_provider_should_provide_value() {
+fn provide_with_extended_value_from_provider_with_id_should_provide_value() {
+    // Given
+    #[provider]
+    struct Provider {
+        #[extend(CommonProvider)]
+        sub: SharedProvider,
+    }
+    let prov = Provider {
+        sub: SharedProvider,
+    };
+    // When
+    let value = prov.provide::<i32>();
+    // Then
+    assert_eq!(value, common::CommonProvider.provide::<i32>());
+}
+
+#[test]
+fn provide_with_extended_generic_value_should_provide_value() {
     // Given
     #[provider]
     #[provide(&'a dyn Greeter, self.0)]

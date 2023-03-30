@@ -1,20 +1,18 @@
-use super::models::ProvidedType;
-use quote::quote;
+use super::models::{ProvidedType, ProviderKey};
 use std::{collections::HashMap, sync::RwLock};
-use syn::{Ident, Type};
 
 thread_local! {
-    static CACHE: RwLock<HashMap<String, Vec<ProvidedType>>> = RwLock::new(HashMap::new());
+    static CACHE: RwLock<HashMap<ProviderKey, Vec<ProvidedType>>> = RwLock::new(HashMap::new());
 }
 
-fn update_cache(update: impl FnOnce(&mut HashMap<String, Vec<ProvidedType>>)) {
+fn update_cache(update: impl FnOnce(&mut HashMap<ProviderKey, Vec<ProvidedType>>)) {
     CACHE.with(move |cache| {
         let mut cache = cache.write().unwrap();
         update(&mut cache);
     });
 }
 
-fn get(key: &str) -> Vec<ProvidedType> {
+pub(crate) fn get(key: &ProviderKey) -> Vec<ProvidedType> {
     CACHE.with(move |cache| {
         let cache = cache.read().unwrap();
         match cache.get(key) {
@@ -24,23 +22,15 @@ fn get(key: &str) -> Vec<ProvidedType> {
     })
 }
 
-pub(crate) fn get_for_type(key: &Type) -> Vec<ProvidedType> {
-    let key = super::extract_key_from_type(key);
-    get(&key)
-}
-
-pub(crate) fn add(key: &Ident, provided_type: &Type) {
-    let provided_type = ProvidedType::from(provided_type);
-    let key = quote! {#key}.to_string();
+pub(crate) fn add(key: ProviderKey, provided_type: ProvidedType) {
     update_cache(|x| {
         let types = x.entry(key).or_default();
         types.push(provided_type);
     });
 }
 
-pub(crate) fn remove(key: &Ident) {
-    let key = quote! {#key}.to_string();
+pub(crate) fn remove(key: &ProviderKey) {
     update_cache(|x| {
-        x.remove(&key);
+        x.remove(key);
     });
 }

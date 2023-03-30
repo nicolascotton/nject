@@ -1,6 +1,21 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{DeriveInput, GenericParam, Type};
+use syn::{DeriveInput, GenericParam, Ident, Type};
+
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub(crate) struct ProviderKey(pub(crate) String);
+
+impl From<&Ident> for ProviderKey {
+    fn from(value: &Ident) -> Self {
+        Self(quote! {#value}.to_string())
+    }
+}
+
+impl From<&Type> for ProviderKey {
+    fn from(value: &Type) -> Self {
+        Self(super::extract_key_from_type(value))
+    }
+}
 
 #[derive(Clone, Debug)]
 pub(crate) struct Provider {
