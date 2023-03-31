@@ -225,6 +225,58 @@ fn main() {
     let _facade = Provider.provide::<Facade>();
 }
 ```
+### Extend other providers
+```rust
+use nject::{provide, provider};
+
+#[provider]
+#[provide(i32, 123)]
+struct SubSubProvider;
+
+#[provider]
+#[provide(f32, 1.23)]
+struct SubProvider {
+    #[extend]
+    sub: SubSubProvider
+}
+
+#[provider]
+struct Provider(#[extend] SubProvider);
+
+fn main() {
+    let provider = Provider(SubProvider { sub: SubSubProvider });
+    let _v1 = provider.provide::<i32>();
+    let _v2 = provider.provide::<f32>();
+}
+```
+#### **Limitations**
+To keep the `zero cost` promise, some limitations had to be put in place:
+1. Extendable providers are discovered as macros expand. Which means your child providers **need** to expand before their use in any `extend`.
+2. Provided types in a child provider **must** be visible to their parents.
+3. Providers are keyed by their identities. Please make sure they are **unique** to your application. 
+4. If your provider is **aliased**, you will need to specify the original identity to `extend`.
+```rust
+use nject::{provide, provider};
+
+mod sub {
+    use nject::{provide, provider};
+
+    #[provider]
+    #[provide(i32, 42)]
+    pub struct MyUniqueProviderIdentity;
+
+    pub use MyUniqueProviderIdentity as SubProvider;
+}
+
+#[provider]
+struct Provider(#[extend(MyUniqueProviderIdentity)] sub::SubProvider);
+
+fn main() {
+    let _value = Provider(sub::SubProvider).provide::<i32>();
+}
+```
+5. `provider` attributes must be placed **before** any `provide` attributes.
+
 ## Examples
 You can look into the [axum](https://github.com/nicolascotton/nject/tree/main/examples/axum) example for a Web API use case or into the [Leptos](https://github.com/nicolascotton/nject/tree/main/examples/leptos) example for a Web App.
 ## Credits
