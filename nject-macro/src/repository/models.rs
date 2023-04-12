@@ -19,7 +19,7 @@ impl From<&Type> for ProviderKey {
 
 #[derive(Clone, Debug)]
 pub(crate) struct Provider {
-    generic_keys: Vec<String>,
+    pub(crate) generic_keys: Vec<String>,
 }
 
 impl Provider {
@@ -88,7 +88,7 @@ impl From<&Type> for Provider {
 
 #[derive(Clone, Debug)]
 pub(crate) struct ProvidedType {
-    ty: String,
+    pub(crate) ty: String,
 }
 
 impl ProvidedType {

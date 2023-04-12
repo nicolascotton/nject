@@ -86,8 +86,8 @@ pub(crate) fn handle_provider(_attr: TokenStream, item: TokenStream) -> TokenStr
         }
     });
 
-    super::repository::provider::add(provider_key.to_owned(), Provider::from(&input));
     super::repository::provide::remove(&provider_key);
+    super::repository::provider::add(provider_key.to_owned(), Provider::from(&input));
     let output = quote! {
         #[derive(nject::ProviderHelperAttr)]
         #input
