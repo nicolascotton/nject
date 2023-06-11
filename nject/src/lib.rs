@@ -1,7 +1,10 @@
 #![doc = include_str!("../README.md")]
 
 #[cfg(feature = "macro")]
-pub use nject_macro::{inject, injectable, provide, provider, InjectableHelperAttr};
+pub use nject_macro::{
+    inject, injectable, module, provide, provider, InjectableHelperAttr, ModuleHelperAttr,
+    ProviderHelperAttr,
+};
 
 /// Provide a value for a specified type. Should be used with the `provide` macro for a better experience.
 /// ```rust
@@ -49,4 +52,46 @@ pub trait Provider<'prov, Value> {
 /// ```
 pub trait Injectable<'prov, Injecty, Provider> {
     fn inject(provider: &'prov Provider) -> Injecty;
+}
+
+/// Import exportations made from a module. Should be used with the `import` macro for a better experience.
+/// ```rust
+/// use nject::{injectable, provider};
+///
+/// mod sub {
+///     use nject::{injectable, module};
+///
+///     #[injectable]
+///     struct InternalType( #[inject(123)] i32); // Not visible outside of module.
+///
+///     #[injectable]
+///     pub struct Facade<'a> {
+///         hidden: &'a InternalType
+///     }
+///
+///     #[injectable]
+///     #[module]
+///     pub struct Module {
+///         #[export]
+///         hidden: InternalType
+///     }
+/// }
+///
+/// #[injectable]
+/// #[provider]
+/// struct Provider {
+///     #[import]
+///     subModule: sub::Module
+/// }
+///
+/// fn main() {
+///     #[provider]
+///     struct InitProvider;
+///
+///     let provider = InitProvider.provide::<Provider>();
+///     let _facade = provider.provide::<sub::Facade>();
+/// }
+/// ```
+pub trait Import<Module> {
+    fn reference(&self) -> &Module;
 }

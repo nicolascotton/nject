@@ -1,10 +1,12 @@
 #![doc = include_str!("../README.md")]
 mod inject;
 mod injectable;
+mod module;
 mod provide;
 mod provider;
 use inject::handle_inject;
 use injectable::handle_injectable;
+use module::handle_module;
 use proc_macro::TokenStream;
 use provide::handle_provide;
 use provider::handle_provider;
@@ -15,9 +17,21 @@ pub fn injectable_helper_attr(_item: TokenStream) -> TokenStream {
     TokenStream::new()
 }
 
+/// For internal purposes only. Should not be used.
+#[proc_macro_derive(ModuleHelperAttr, attributes(export))]
+pub fn module_helper_attr(_item: TokenStream) -> TokenStream {
+    TokenStream::new()
+}
+
+/// For internal purposes only. Should not be used.
+#[proc_macro_derive(ProviderHelperAttr, attributes(import))]
+pub fn provider_helper_attr(_item: TokenStream) -> TokenStream {
+    TokenStream::new()
+}
+
 /// Attribute to mark a struct as injectable.
 /// ```rust
-/// use nject_macro::{injectable, provider};
+/// use nject::{injectable, provider};
 ///
 /// #[injectable]
 /// struct Facade;
@@ -36,7 +50,7 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
 /// Attribute to specify a desired injected value.
 /// ```rust
-/// use nject_macro::{inject, injectable, provider};
+/// use nject::{inject, injectable, provider};
 ///
 /// #[inject(Self { value: 42 })]
 /// struct DepOne {
@@ -63,7 +77,7 @@ pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 /// Attribute to mark a struct as a provider.
 /// ```rust
-/// use nject_macro::{injectable, provider};
+/// use nject::{injectable, provider};
 ///
 /// #[injectable]
 /// struct Facade;
@@ -82,7 +96,7 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
 /// Attribute to provide a given instance for a specific type.
 /// ```rust
-/// use nject_macro::{injectable, provide, provider};
+/// use nject::{injectable, provide, provider};
 ///
 /// struct Dependency {
 ///     value: i32,
@@ -103,4 +117,47 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn provide(attr: TokenStream, item: TokenStream) -> TokenStream {
     handle_provide(attr, item)
+}
+
+/// Declare a module to export internal types.
+/// ```rust
+/// use nject::{injectable, provider};
+///
+/// mod sub {
+///     use nject::{injectable, module};
+///
+///     #[injectable]
+///     struct InternalType( #[inject(123)] i32); // Not visible outside of module.
+///
+///     #[injectable]
+///     pub struct Facade<'a> {
+///         hidden: &'a InternalType
+///     }
+///
+///     #[injectable]
+///     #[module]
+///     pub struct Module {
+///         #[export]
+///         hidden: InternalType
+///     }
+/// }
+///
+/// #[injectable]
+/// #[provider]
+/// struct Provider {
+///     #[import]
+///     subModule: sub::Module
+/// }
+///
+/// fn main() {
+///     #[provider]
+///     struct InitProvider;
+///
+///     let provider = InitProvider.provide::<Provider>();
+///     let _facade = provider.provide::<sub::Facade>();
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn module(attr: TokenStream, item: TokenStream) -> TokenStream {
+    handle_module(attr, item)
 }
