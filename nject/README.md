@@ -225,6 +225,49 @@ fn main() {
     let _facade = Provider.provide::<Facade>();
 }
 ```
+### Use modules to export internal shared dependencies
+```rust
+use nject::{injectable, provider};
+
+mod sub {
+    use nject::{injectable, module};
+
+    #[injectable]
+    struct InternalType( #[inject(123)] i32); // Not visible outside of module.
+
+    #[injectable]
+    pub struct Facade<'a> {
+        hidden: &'a InternalType
+    }
+
+    #[injectable]
+    #[module]
+    pub struct Module {
+        #[export]
+        hidden: InternalType
+    }
+}
+
+#[injectable]
+#[provider]
+struct Provider {
+    #[import]
+    subModule: sub::Module
+}
+
+fn main() {
+    #[provider]
+    struct InitProvider;
+
+    let provider = InitProvider.provide::<Provider>();
+    let _facade = provider.provide::<sub::Facade>();
+}
+
+```
+### Limitations
+1. Dependencies can only be exported by a single module.
+1. Generic parameters are not supported on modules.
+
 ## Examples
 You can look into the [axum](https://github.com/nicolascotton/nject/tree/main/examples/axum) example for a Web API use case or into the [Leptos](https://github.com/nicolascotton/nject/tree/main/examples/leptos) example for a Web App.
 ## Credits
