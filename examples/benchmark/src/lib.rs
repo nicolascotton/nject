@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     extern crate test;
-    use nject::{inject, injectable, provide, provider};
+    use nject::{inject, injectable, provide, provider, module};
     use test::Bencher;
 
     #[inject(Self(123))]
@@ -53,14 +53,32 @@ mod tests {
     #[injectable]
     struct RefProvider(Dep1, Dep2, Dep3, Dep4, Dep5, Dep6, Dep7, Dep8, Dep9, Dep10);
 
+    #[injectable]
+    #[module]
+    struct Module(
+        #[export] Dep1,
+        #[export] Dep2,
+        #[export] Dep3,
+        #[export] Dep4,
+        #[export] Dep5,
+        #[export] Dep6,
+        #[export] Dep7,
+        #[export] Dep8,
+        #[export] Dep9,
+        #[export] Dep10,
+    );
+
+    #[injectable]
+    #[provider]
+    struct ModuleProvider(#[import]Module);
+
     const ITERATION_COUNT: i32 = 10000;
 
     #[bench]
     fn nject_by_value(b: &mut Bencher) {
         let provider = Provider;
         b.iter(move || {
-            let n = test::black_box(ITERATION_COUNT);
-            for _ in 0..n {
+            for _ in 0..ITERATION_COUNT {
                 test::black_box((
                     provider.provide::<Dep1>(),
                     provider.provide::<Dep2>(),
@@ -81,8 +99,28 @@ mod tests {
     fn nject_by_ref(b: &mut Bencher) {
         let provider = Provider.provide::<RefProvider>();
         b.iter(move || {
-            let n = test::black_box(ITERATION_COUNT);
-            for _ in 0..n {
+            for _ in 0..ITERATION_COUNT {
+                test::black_box((
+                    provider.provide::<&Dep1>(),
+                    provider.provide::<&Dep2>(),
+                    provider.provide::<&Dep3>(),
+                    provider.provide::<&Dep4>(),
+                    provider.provide::<&Dep5>(),
+                    provider.provide::<&Dep6>(),
+                    provider.provide::<&Dep7>(),
+                    provider.provide::<&Dep8>(),
+                    provider.provide::<&Dep9>(),
+                    provider.provide::<&Dep10>(),
+                ));
+            }
+        });
+    }
+
+    #[bench]
+    fn nject_by_module_ref(b: &mut Bencher) {
+        let provider = Provider.provide::<ModuleProvider>();
+        b.iter(move || {
+            for _ in 0..ITERATION_COUNT {
                 test::black_box((
                     provider.provide::<&Dep1>(),
                     provider.provide::<&Dep2>(),
@@ -102,8 +140,7 @@ mod tests {
     #[bench]
     fn baseline_by_value(b: &mut Bencher) {
         b.iter(|| {
-            let n = test::black_box(ITERATION_COUNT);
-            for _ in 0..n {
+            for _ in 0..ITERATION_COUNT {
                 test::black_box((
                     Dep1(123),
                     Dep2(Dep1(123)),
@@ -971,8 +1008,7 @@ mod tests {
             ),
         );
         b.iter(|| {
-            let n = test::black_box(ITERATION_COUNT);
-            for _ in 0..n {
+            for _ in 0..ITERATION_COUNT {
                 test::black_box((
                     &provider.0,
                     &provider.1,

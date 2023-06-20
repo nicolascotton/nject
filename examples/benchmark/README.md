@@ -6,8 +6,9 @@ cargo bench
 ```
 ## Output
 ```
-test tests::baseline_by_ref   ... bench:      10,614 ns/iter (+/- 1,318)
-test tests::baseline_by_value ... bench:     135,785 ns/iter (+/- 42,243)
-test tests::nject_by_ref      ... bench:      10,521 ns/iter (+/- 436)
-test tests::nject_by_value    ... bench:     135,441 ns/iter (+/- 24,549)
+test tests::baseline_by_ref     ... bench:      10,784 ns/iter (+/- 1,581)
+test tests::baseline_by_value   ... bench:     137,040 ns/iter (+/- 4,576)
+test tests::nject_by_module_ref ... bench:      10,664 ns/iter (+/- 592)
+test tests::nject_by_ref        ... bench:      10,531 ns/iter (+/- 279)
+test tests::nject_by_value      ... bench:     136,988 ns/iter (+/- 3,023)
 ```
