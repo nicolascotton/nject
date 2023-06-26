@@ -6,7 +6,7 @@ use axum::{
     Json, Router,
 };
 use models::CreateUser;
-use nject::{provide, provider};
+use nject::provider;
 use repository::{memory::MemoryRepository, Repository};
 use service::UserService;
 use std::{net::SocketAddr, sync::Arc};

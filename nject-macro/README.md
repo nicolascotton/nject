@@ -63,7 +63,7 @@ fn main() {
 ```
 ### Works with lifetimes - enables shared dependencies
 ```rust
-use nject::{injectable, provide, provider};
+use nject::{injectable, provider};
 
 #[injectable]
 struct DepOne;
@@ -87,7 +87,7 @@ fn main() {
 ```
 ### Works with dyn traits
 ```rust
-use nject::{injectable, provide, provider};
+use nject::{injectable, provider};
 
 trait Greeter {
     fn greet(&self);
@@ -143,7 +143,7 @@ fn main() {
 ```
 ### Works with generic providers
 ```rust
-use nject::{injectable, provide, provider};
+use nject::{injectable, provider};
 
 trait Greeter {
     fn greet(&self);
@@ -183,7 +183,7 @@ fn main() {
 ```
 ### Easily inject non-injectable dependencies
 ```rust
-use nject::{inject, injectable, provide, provider};
+use nject::{inject, injectable, provider};
 
 #[inject(Self { non_injectable_value: 123 })]
 struct InjectableFromInjectAttr {
