@@ -1,7 +1,7 @@
 mod counter;
 pub use counter::*;
 use leptos::*;
-use nject::{injectable, provide, provider};
+use nject::{injectable, provider};
 
 const PROVIDER: *mut Provider = std::ptr::null_mut();
 

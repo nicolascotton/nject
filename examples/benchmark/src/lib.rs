@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     extern crate test;
-    use nject::{inject, injectable, provide, provider, module};
+    use nject::{inject, injectable, provider, module};
     use test::Bencher;
 
     #[inject(Self(123))]

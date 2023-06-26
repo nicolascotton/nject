@@ -1,4 +1,4 @@
-use nject::{injectable, provide, provider};
+use nject::{injectable, provider};
 
 #[provider]
 struct InitProvider;
@@ -10,6 +10,20 @@ fn provide_with_simple_module_should_export_its_members_correctly() {
     #[provider]
     struct Provider(#[import] sub::SimpleModule);
     let provider = InitProvider.provide::<Provider>();
+    // When
+    let facade = provider.provide::<sub::SimpleFacade>();
+    // Then
+    assert_eq!(facade, sub::expected_simple_facade(&provider.0))
+}
+
+#[test]
+fn provide_with_ref_to_module_should_export_its_members_correctly() {
+    // Given
+    #[injectable]
+    #[provider]
+    struct Provider<'a>(#[import] &'a sub::SimpleModule);
+    let module = InitProvider.provide::<sub::SimpleModule>();
+    let provider = Provider(&module);
     // When
     let facade = provider.provide::<sub::SimpleFacade>();
     // Then

@@ -2,27 +2,35 @@
 
 #[cfg(feature = "macro")]
 pub use nject_macro::{
-    inject, injectable, module, provide, provider, InjectableHelperAttr, ModuleHelperAttr,
+    inject, injectable, module, provider, InjectableHelperAttr, ModuleHelperAttr,
     ProviderHelperAttr,
 };
 
 /// Provide a value for a specified type. Should be used with the `provide` macro for a better experience.
 /// ```rust
-/// use nject::{injectable, provide, provider};
+/// use nject::{injectable, provider};
 ///
 /// struct DependencyToProvide {
 ///     value: i32,
 /// }
 ///
+/// struct SharedDependencyToProvide {
+///     value: i32,
+/// }
+///
 /// #[injectable]
-/// struct Facade(DependencyToProvide);
+/// struct Facade<'a>(DependencyToProvide, &'a SharedDependencyToProvide);
 ///
 /// #[provider]
 /// #[provide(DependencyToProvide, DependencyToProvide { value: 42 })]
-/// struct Provider;
+/// struct Provider {
+///     #[provide]
+///     shared: SharedDependencyToProvide
+/// }
 ///
 /// fn main() {
-///     let _facade: Facade = Provider.provide();
+///     let provider = Provider { shared: SharedDependencyToProvide { value: 123 } };
+///     let _facade: Facade = provider.provide();
 /// }
 /// ```
 pub trait Provider<'prov, Value> {
@@ -31,7 +39,7 @@ pub trait Provider<'prov, Value> {
 
 /// Inject dependencies for a specific type and return its value. Should be used with the `injectable` macro for a better experience.
 /// ```rust
-/// use nject::{injectable, provide, provider};
+/// use nject::{injectable, provider};
 ///
 /// struct Dependency {
 ///     value: i32,

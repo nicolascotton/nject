@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use nject::{injectable, provide, provider};
+use nject::{injectable, provider};
 mod common;
 pub use common::*;
 
@@ -69,6 +69,30 @@ fn provide_ref_dyn_trait_without_boxing_should_give_corresponding_ref() {
     let greeter: &dyn Greeter = provider.provide();
     // Then
     assert_eq!(greeter.greet(), GreeterTwo.greet());
+}
+
+#[test]
+fn provide_with_provide_attr_on_field_should_give_corresponding_ref() {
+    // Given
+    #[provider]
+    struct Provider(#[provide] i32);
+    let provider = Provider(123);
+    // When
+    let value: &i32 = provider.provide();
+    // Then
+    assert_eq!(value, &provider.0);
+}
+
+#[test]
+fn provide_with_provide_attr_on_ref_field_should_give_corresponding_ref() {
+    // Given
+    #[provider]
+    struct Provider<'a>(#[provide] &'a i32);
+    let provider = Provider(&123);
+    // When
+    let value: &i32 = provider.provide();
+    // Then
+    assert_eq!(value, provider.0);
 }
 
 trait Greeter {
