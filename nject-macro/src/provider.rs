@@ -1,15 +1,13 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput, GenericParam, Type, Expr, parenthesized, Token, parse::{ParseStream, Parse}};
+use syn::{parse_macro_input, DeriveInput, GenericParam, Type, Expr, Token, parse::{ParseStream, Parse}};
 
 struct TypeExpr(Type, Expr);
 impl Parse for TypeExpr {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let content;
-        parenthesized!(content in input);
-        let parsed_type = content.parse()?;
-        content.parse::<Token![,]>()?;
-        let parsed_value: Expr = content.parse()?;
+        let parsed_type = input.parse()?;
+        input.parse::<Token![,]>()?;
+        let parsed_value: Expr = input.parse()?;
         return Ok(TypeExpr(parsed_type, parsed_value));
     }
 }
@@ -47,7 +45,7 @@ pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
         .iter()
         .enumerate()
         .filter_map(
-            |(i, f)| match f.attrs.iter().filter(|a| a.path.is_ident("import")).last() {
+            |(i, f)| match f.attrs.iter().filter(|a| a.path().is_ident("import")).last() {
                 Some(_) => Some(i),
                 None => None,
             },
@@ -57,13 +55,13 @@ pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
         .iter()
         .enumerate()
         .filter_map(
-            |(i, f)| match f.attrs.iter().filter(|a| a.path.is_ident("provide")).last() {
+            |(i, f)| match f.attrs.iter().filter(|a| a.path().is_ident("provide")).last() {
                 Some(_) => Some(i),
                 None => None,
             },
         )
         .collect::<Vec<_>>();
-    let provide_input_attr = input.attrs.iter().filter(|a| a.path.is_ident("provide"));
+    let provide_input_attr = input.attrs.iter().filter(|a| a.path().is_ident("provide"));
     let import_outputs = import_attr_indexes.iter().map(|i| {
         let field = fields[*i];
         let ty = &field.ty;
@@ -122,7 +120,7 @@ pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
     });
 
     let input_provide_outputs =
-        provide_input_attr.map(|a| syn::parse2::<TypeExpr>(a.tokens.clone()).unwrap())
+        provide_input_attr.map(|a| a.parse_args::<TypeExpr>().unwrap())
         .map(|t| {
             let ty = t.0;
             let value=t.1;

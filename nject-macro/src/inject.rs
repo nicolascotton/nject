@@ -4,10 +4,10 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
-    DeriveInput, Expr, ExprType, GenericParam, Token,
+    DeriveInput, Expr, GenericParam, Token, TypeParam,
 };
 
-struct InjectExpr(Expr, Punctuated<ExprType, Token![,]>);
+struct InjectExpr(Expr, Punctuated<TypeParam, Token![,]>);
 impl Parse for InjectExpr {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let parsed_type = input.parse()?;
@@ -50,7 +50,7 @@ pub(crate) fn handle_inject(item: TokenStream, attr: TokenStream) -> TokenStream
         true => quote! { 'prov: #(#lifetime_keys)+*, },
         false => quote! {},
     };
-    let prov_types = attributes.1.iter().map(|x| &x.ty).collect::<Vec<_>>();
+    let prov_types = attributes.1.iter().map(|x| &x.bounds).collect::<Vec<_>>();
     let where_predicates = match &input.generics.where_clause {
         Some(w) => {
             let predicates = &w.predicates;
