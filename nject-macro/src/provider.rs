@@ -1,6 +1,18 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput, GenericParam, Type};
+use syn::{parse_macro_input, DeriveInput, GenericParam, Type, Expr, parenthesized, Token, parse::{ParseStream, Parse}};
+
+struct TypeExpr(Type, Expr);
+impl Parse for TypeExpr {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let content;
+        parenthesized!(content in input);
+        let parsed_type = content.parse()?;
+        content.parse::<Token![,]>()?;
+        let parsed_value: Expr = content.parse()?;
+        return Ok(TypeExpr(parsed_type, parsed_value));
+    }
+}
 
 pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
@@ -31,7 +43,7 @@ pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
         }
         None => quote! {},
     };
-    let use_attr_indexes = fields
+    let import_attr_indexes = fields
         .iter()
         .enumerate()
         .filter_map(
@@ -41,7 +53,18 @@ pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
             },
         )
         .collect::<Vec<_>>();
-    let use_outputs = use_attr_indexes.iter().map(|i| {
+    let provide_attr_indexes = fields
+        .iter()
+        .enumerate()
+        .filter_map(
+            |(i, f)| match f.attrs.iter().filter(|a| a.path.is_ident("provide")).last() {
+                Some(_) => Some(i),
+                None => None,
+            },
+        )
+        .collect::<Vec<_>>();
+    let provide_input_attr = input.attrs.iter().filter(|a| a.path.is_ident("provide"));
+    let import_outputs = import_attr_indexes.iter().map(|i| {
         let field = fields[*i];
         let ty = &field.ty;
         let ty_output = match ty {
@@ -69,6 +92,52 @@ pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
             }
         }
     });
+    let provide_outputs = provide_attr_indexes.iter().map(|i| {
+        let field = fields[*i];
+        let ty = &field.ty;
+        let ty_output = match ty {
+            Type::Reference(r) => {
+                let inner_ty = &r.elem;
+                quote! { #inner_ty }
+            }
+            _ => quote! { #ty },
+        };
+        let index = syn::Index::from(*i);
+        let field_key = match &field.ident {
+            Some(i) => quote! { #i },
+            None => quote! { #index },
+        };
+
+        quote! {
+
+            impl<'prov#(,#generic_params)*> nject::Provider<'prov, &'prov #ty_output> for #ident<#(#generic_keys),*>
+                where #where_predicates
+            {
+                #[inline]
+                fn provide(&'prov self) -> &'prov #ty_output {
+                    &self.#field_key
+                }
+            }
+        }
+    });
+
+    let input_provide_outputs =
+        provide_input_attr.map(|a| syn::parse2::<TypeExpr>(a.tokens.clone()).unwrap())
+        .map(|t| {
+            let ty = t.0;
+            let value=t.1;
+            quote!{ 
+
+                impl<'prov, #(#generic_params),*> nject::Provider<'prov, #ty> for #ident<#(#generic_keys),*>
+                    where #where_predicates
+                {
+                    #[inline]
+                    fn provide(&'prov self) -> #ty {
+                        #value
+                    }
+                }
+            }
+        });
 
     let output = quote! {
         #[derive(nject::ProviderHelperAttr)]
@@ -93,7 +162,9 @@ pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
                 <Self as nject::Provider<'prov, Njecty>>::provide(self)
             }
         }
-        #(#use_outputs)*
+        #(#import_outputs)*
+        #(#provide_outputs)*
+        #(#input_provide_outputs)*
     };
     output.into()
 }
