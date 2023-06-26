@@ -13,7 +13,7 @@ pub(crate) fn handle_module(_attr: TokenStream, item: TokenStream) -> TokenStrea
         .iter()
         .enumerate()
         .filter_map(
-            |(i, f)| match f.attrs.iter().filter(|a| a.path.is_ident("export")).last() {
+            |(i, f)| match f.attrs.iter().filter(|a| a.path().is_ident("export")).last() {
                 Some(_) => Some(i),
                 None => None,
             },

@@ -29,7 +29,7 @@ Simple zero cost dependency injection library made for rust
 Add the following to your `Cargo.toml`:
 ```toml
 [dependencies]
-nject = "0.2"
+nject = "0.3"
 ```
 ## Why `nject`?
 - **Zero cost**: Using this library is equivalent to manually injecting your dependencies as shown in the [benchmarks](https://github.com/nicolascotton/nject/tree/main/examples/benchmark).
@@ -65,7 +65,6 @@ fn main() {
 ```rust
 use nject::{injectable, provider};
 
-#[injectable]
 struct DepOne;
 
 #[injectable]
@@ -74,8 +73,8 @@ struct Facade<'a> {
 }
 
 #[provider]
-#[provide(&'a DepOne, self.shared)]
 struct Provider<'a> {
+    #[provide]
     shared: &'a DepOne,
 }
 

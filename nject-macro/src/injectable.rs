@@ -1,21 +1,18 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    parenthesized,
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
-    DeriveInput, Expr, ExprType, GenericParam, Ident, Token, Type,
+    DeriveInput, Expr, GenericParam, Ident, Token, Type, TypeParam,
 };
 
-struct InjectHelperExpr(Expr, Punctuated<ExprType, Token![,]>);
+struct InjectHelperExpr(Expr, Punctuated<TypeParam, Token![,]>);
 impl Parse for InjectHelperExpr {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let content;
-        parenthesized!(content in input);
-        let parsed_type = content.parse()?;
-        if content.parse::<Token![,]>().is_ok() {
-            let parsed_value = Punctuated::parse_separated_nonempty(&content)?;
+        let parsed_type = input.parse()?;
+        if input.parse::<Token![,]>().is_ok() {
+            let parsed_value = Punctuated::parse_separated_nonempty(&input)?;
             Ok(Self(parsed_type, parsed_value))
         } else {
             Ok(Self(parsed_type, Punctuated::new()))
@@ -38,12 +35,17 @@ pub(crate) fn handle_injectable(item: TokenStream) -> TokenStream {
         .collect::<Vec<&Ident>>();
     let attributes = fields
         .iter()
-        .map(
-            |f| match f.attrs.iter().filter(|a| a.path.is_ident("inject")).last() {
-                Some(a) => Some(syn::parse2::<InjectHelperExpr>(a.tokens.clone()).unwrap()),
+        .map(|f| {
+            match f
+                .attrs
+                .iter()
+                .filter(|a| a.path().is_ident("inject"))
+                .last()
+            {
+                Some(a) => Some(a.parse_args::<InjectHelperExpr>().unwrap()),
                 None => None,
-            },
-        )
+            }
+        })
         .collect::<Vec<_>>();
     let generic_params = &input.generics.params.iter().collect::<Vec<&GenericParam>>();
     let generic_keys = &generic_params
@@ -124,17 +126,17 @@ pub(crate) fn handle_injectable(item: TokenStream) -> TokenStream {
             quote! { #ident { #(#items),* } }
         }
     };
-    let mut prov_types = Vec::<Type>::with_capacity(types.len());
+    let mut prov_types = Vec::<_>::with_capacity(types.len());
     for (t, a) in types.iter().zip(&attributes) {
         if let Some(attr) = a {
-            for attr_type in attr.1.iter().map(|x| &x.ty) {
-                prov_types.push(attr_type.as_ref().clone());
+            for attr_type in attr.1.iter().map(|x| &x.bounds) {
+                prov_types.push(quote! {#attr_type});
             }
         } else {
-            prov_types.push((*t).clone());
+            prov_types.push(quote! {#t});
         }
     }
-    prov_types.dedup_by(|a, b| quote! { #a }.to_string() == quote! { #b }.to_string());
+    prov_types.dedup_by(|a, b| a.to_string() == b.to_string());
     let output = quote! {
         #[derive(nject::InjectableHelperAttr)]
         #input
