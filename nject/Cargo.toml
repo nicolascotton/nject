@@ -13,7 +13,7 @@ repository = "https://github.com/nicolascotton/nject"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nject-macro = { path = "../nject-macro", version = "0.3", optional = true }
+nject-macro = { path = "../nject-macro", version = "0.3.0", optional = true }
 
 [features]
 default = ["macro"]
