@@ -1,4 +1,4 @@
-use super::CounterStore;
+use super::store::CounterStore;
 use crate::Provider;
 use nject::injectable;
 

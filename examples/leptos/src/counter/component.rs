@@ -1,4 +1,5 @@
-use super::{counter_service, counter_store};
+use super::service::counter_service;
+use super::store::counter_store;
 use leptos::{component, view, IntoView, Scope};
 
 #[component]

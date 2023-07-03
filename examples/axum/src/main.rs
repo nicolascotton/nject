@@ -16,8 +16,8 @@ mod repository;
 mod service;
 
 #[provider]
-#[provide(&'prov dyn Repository, &self.repository)]
 pub struct Provider {
+    #[provide(dyn Repository)]
     repository: MemoryRepository,
 }
 

@@ -20,4 +20,4 @@ syn = { version = "2.0", features = ["full"] }
 quote = "1.0"
 
 [dev-dependencies]
-nject = { path = "../nject", default-features = false }
+nject = { path = "../nject" }
