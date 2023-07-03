@@ -54,12 +54,14 @@ pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
     let provide_attr_indexes = fields
         .iter()
         .enumerate()
-        .filter_map(
-            |(i, f)| match f.attrs.iter().filter(|a| a.path().is_ident("provide")).last() {
-                Some(_) => Some(i),
-                None => None,
-            },
-        )
+        .filter_map( |(i, f)| { 
+            let attrs = f.attrs.iter().filter(|a| a.path().is_ident("provide")).collect::<Vec<_>>();
+            if attrs.is_empty() {
+                None
+            } else {
+                Some((i, attrs))
+            }
+        })
         .collect::<Vec<_>>();
     let provide_input_attr = input.attrs.iter().filter(|a| a.path().is_ident("provide"));
     let import_outputs = import_attr_indexes.iter().map(|i| {
@@ -90,37 +92,49 @@ pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
             }
         }
     });
-    let provide_outputs = provide_attr_indexes.iter().map(|i| {
+    let provide_outputs = provide_attr_indexes.iter().map(|(i, attrs)| {
         let field = fields[*i];
-        let ty = &field.ty;
-        let ty_output = match ty {
+        let (key_prefix, ref_prefix) = if let Type::Reference(r) = &field.ty {
+            let lifetime = &r.lifetime;
+            (quote! {}, quote! { &#lifetime })
+        } else {
+            (quote! { & }, quote! { &'prov })
+        };
+        let attr_types = attrs.iter().map(|a| match a.meta {
+            syn::Meta::Path(_) => field.ty.to_owned(),
+            _ => a.parse_args::<Type>().unwrap()
+        });
+        let ty_outputs = attr_types.map(|ty| match ty {
             Type::Reference(r) => {
                 let inner_ty = &r.elem;
-                quote! { #inner_ty }
-            }
-            _ => quote! { #ty },
-        };
+                quote! { #ref_prefix #inner_ty }
+            },
+            _ => quote! { #ref_prefix #ty },
+        });
         let index = syn::Index::from(*i);
         let field_key = match &field.ident {
             Some(i) => quote! { #i },
             None => quote! { #index },
         };
+        let outputs = ty_outputs.map(|ty_output| quote! {
 
-        quote! {
-
-            impl<'prov#(,#generic_params)*> nject::Provider<'prov, &'prov #ty_output> for #ident<#(#generic_keys),*>
+            impl<'prov#(,#generic_params)*> nject::Provider<'prov, #ty_output> for #ident<#(#generic_keys),*>
                 where #where_predicates
             {
                 #[inline]
-                fn provide(&'prov self) -> &'prov #ty_output {
-                    &self.#field_key
+                fn provide(&'prov self) -> #ty_output {
+                    #key_prefix self.#field_key
                 }
             }
+        });
+
+        quote! {
+            #(#outputs)*
         }
     });
 
-    let input_provide_outputs =
-        provide_input_attr.map(|a| a.parse_args::<TypeExpr>().unwrap())
+    let input_provide_outputs = provide_input_attr
+        .map(|a| a.parse_args::<TypeExpr>().unwrap())
         .map(|t| {
             let ty = t.0;
             let value=t.1;

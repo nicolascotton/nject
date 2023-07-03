@@ -95,6 +95,31 @@ fn provide_with_provide_attr_on_ref_field_should_give_corresponding_ref() {
     assert_eq!(value, provider.0);
 }
 
+#[test]
+fn provide_with_provide_attr_on_value_field_with_specified_dyn_trait_should_give_corresponding_ref()
+{
+    // Given
+    #[provider]
+    struct Provider<T: Greeter>(#[provide(dyn Greeter)] T);
+    let provider = Provider(GreeterTwo);
+    // When
+    let value: &dyn Greeter = provider.provide();
+    // Then
+    assert_eq!(value.greet(), provider.0.greet());
+}
+
+#[test]
+fn provide_with_provide_attr_on_ref_field_with_specified_dyn_trait_should_give_corresponding_ref() {
+    // Given
+    #[provider]
+    struct Provider<'a, T: Greeter>(#[provide(dyn Greeter)] &'a T);
+    let provider = Provider(&GreeterOne);
+    // When
+    let value: &dyn Greeter = provider.provide();
+    // Then
+    assert_eq!(value.greet(), provider.0.greet());
+}
+
 trait Greeter {
     fn greet(&self) -> String;
 }
