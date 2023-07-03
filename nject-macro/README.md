@@ -109,8 +109,8 @@ struct Facade<'a> {
 
 #[provider]
 #[provide(Box<dyn Greeter>, Box::<GreeterOne>::new(self.provide()))]
-#[provide(&'prov dyn Greeter, &self.greeter)]
 struct Provider {
+    #[provide(dyn Greeter)]
     greeter: GreeterOne,
 }
 
@@ -172,8 +172,7 @@ struct Facade<'a> {
 }
 
 #[provider]
-#[provide(&'a dyn Greeter, self.0)]
-struct Provider<'a, T: Greeter>(&'a T);
+struct Provider<'a, T: Greeter>(#[provide(dyn Greeter)] &'a T);
 
 fn main() {
     let _dev_facade: Facade = Provider(&DevGreeter).provide();
@@ -265,6 +264,7 @@ fn main() {
 ```
 ### Limitations
 1. Dependencies can only be exported by a single module.
+1. Modules can only export types defined in its crate.
 1. Generic parameters are not supported on modules.
 
 ## Examples
