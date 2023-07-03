@@ -1,7 +1,12 @@
 mod component;
 mod service;
 mod store;
-
 pub use component::*;
-pub use service::*;
-pub use store::*;
+use nject::{module, injectable};
+
+#[injectable]
+#[module]
+pub struct CounterModule {
+    #[export]
+    store: store::CounterStore,
+}

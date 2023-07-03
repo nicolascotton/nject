@@ -5,11 +5,11 @@ use nject::{injectable, provider};
 
 const PROVIDER: *mut Provider = std::ptr::null_mut();
 
-#[provider]
-#[provide(&'prov CounterStore, &self.store)]
 #[injectable]
+#[provider]
 pub struct Provider {
-    store: CounterStore,
+    #[import]
+    counter_mod: CounterModule,
 }
 
 impl Provider {
