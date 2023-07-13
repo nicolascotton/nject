@@ -268,7 +268,7 @@ fn main() {
 1. Generic parameters are not supported on modules.
 
 ## Examples
-You can look into the [axum](https://github.com/nicolascotton/nject/tree/main/examples/axum) example for a Web API use case or into the [Leptos](https://github.com/nicolascotton/nject/tree/main/examples/leptos) example for a Web App.
+You can look into the [axum](https://github.com/nicolascotton/nject/tree/main/examples/axum)/[actix](https://github.com/nicolascotton/nject/tree/main/examples/actix) example for a Web API use case or into the [Leptos](https://github.com/nicolascotton/nject/tree/main/examples/leptos) example for a Web App.
 ## Credits
 - [Syn](https://github.com/dtolnay/syn) - [MIT](https://github.com/dtolnay/syn/blob/master/LICENSE-MIT) or [Apache-2.0](https://github.com/dtolnay/syn/blob/master/LICENSE-APACHE)
 - [Quasi-Quoting](https://github.com/dtolnay/quote) - [MIT](https://github.com/dtolnay/quote/blob/master/LICENSE-MIT) or [Apache-2.0](https://github.com/dtolnay/quote/blob/master/LICENSE-APACHE)
