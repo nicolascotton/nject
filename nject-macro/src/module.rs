@@ -12,12 +12,17 @@ pub(crate) fn handle_module(_attr: TokenStream, item: TokenStream) -> TokenStrea
     let export_attr_indexes = fields
         .iter()
         .enumerate()
-        .filter_map(
-            |(i, f)| match f.attrs.iter().filter(|a| a.path().is_ident("export")).last() {
+        .filter_map(|(i, f)| {
+            match f
+                .attrs
+                .iter()
+                .filter(|a| a.path().is_ident("export"))
+                .last()
+            {
                 Some(_) => Some(i),
                 None => None,
-            },
-        )
+            }
+        })
         .collect::<Vec<_>>();
     let generic_params = &input.generics.params.iter().collect::<Vec<&GenericParam>>();
     let generic_keys = &generic_params
