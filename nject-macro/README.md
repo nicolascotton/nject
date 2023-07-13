@@ -250,7 +250,7 @@ mod sub {
 #[provider]
 struct Provider {
     #[import]
-    subModule: sub::Module
+    sub_mod: sub::Module
 }
 
 fn main() {
