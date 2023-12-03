@@ -13,14 +13,15 @@ pub(crate) fn handle_module(_attr: TokenStream, item: TokenStream) -> TokenStrea
         .iter()
         .enumerate()
         .filter_map(|(i, f)| {
-            match f
+            let attrs = f
                 .attrs
                 .iter()
                 .filter(|a| a.path().is_ident("export"))
-                .last()
-            {
-                Some(_) => Some(i),
-                None => None,
+                .collect::<Vec<_>>();
+            if attrs.is_empty() {
+                None
+            } else {
+                Some((i, attrs))
             }
         })
         .collect::<Vec<_>>();
@@ -59,21 +60,31 @@ pub(crate) fn handle_module(_attr: TokenStream, item: TokenStream) -> TokenStrea
         None => quote! {},
     };
 
-    let export_outputs = export_attr_indexes.iter().map(|i| {
+    let export_outputs = export_attr_indexes.iter().map(|(i, attrs)| {
         let field = fields[*i];
-    	let ty = &field.ty;
-    	let ty_output = match ty {
-    		Type::Reference(_) => quote!{ #ty },
-    		_ => quote!{ &'prov #ty }
-    	};
+        let ref_prefix = if let Type::Reference(r) = &field.ty {
+            let lifetime = &r.lifetime;
+             quote! { &#lifetime }
+        } else {
+            quote! { &'prov }
+        };
+        let attr_types = attrs.iter().map(|a| match a.meta {
+            syn::Meta::Path(_) => field.ty.to_owned(),
+            _ => a.parse_args::<Type>().unwrap()
+        });
+        let ty_outputs = attr_types.map(|ty| match ty {
+            Type::Reference(r) => {
+                let inner_ty = &r.elem;
+                quote! { #ref_prefix #inner_ty }
+            },
+            _ => quote! { #ref_prefix #ty },
+        });
         let index = syn::Index::from(*i);
     	let field_key = match &field.ident {
     		Some(i) => quote!{ #i },
     		None => quote!{ #index },
     	};
-
-    	quote!{
-
+        let outputs = ty_outputs.map(|ty_output| quote! {
     		impl<'prov, #(#generic_params,)*NjectProvider> nject::Injectable<'prov, #ty_output, NjectProvider> for #ty_output
     			where
     				#prov_lifetimes
@@ -84,7 +95,10 @@ pub(crate) fn handle_module(_attr: TokenStream, item: TokenStream) -> TokenStrea
         			&provider.reference().#field_key
     			}
     		}
-    	}
+        });
+        quote!{
+            #(#outputs)*
+        }
     });
 
     let output = quote! {
