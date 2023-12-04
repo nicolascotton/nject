@@ -230,19 +230,35 @@ use nject::{injectable, provider};
 mod sub {
     use nject::{injectable, module};
 
+    trait Greeter {
+        fn greet(&self) -> &str;
+    }
+
     #[injectable]
-    struct InternalType( #[inject(123)] i32); // Not visible outside of module.
+    struct GreeterOne;
+
+    impl Greeter for GreeterOne {
+        fn greet(&self) -> &str {
+            "One"
+        }
+    }
+
+    #[injectable]
+    struct InternalType(#[inject(123)] i32); // Not visible outside of module.
 
     #[injectable]
     pub struct Facade<'a> {
-        hidden: &'a InternalType
+        hidden: &'a InternalType,
+        hidden_dyn: &'a dyn Greeter
     }
 
     #[injectable]
     #[module]
     pub struct Module {
         #[export]
-        hidden: InternalType
+        hidden: InternalType,
+        #[export(dyn Greeter)]
+        hidden_dyn: GreeterOne
     }
 }
 
