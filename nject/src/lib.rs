@@ -70,7 +70,7 @@ pub trait Injectable<'prov, Injecty, Provider> {
 ///     use nject::{injectable, module};
 ///
 ///     #[injectable]
-///     struct InternalType( #[inject(123)] i32); // Not visible outside of module.
+///     struct InternalType(#[inject(123)] i32); // Not visible outside of module.
 ///
 ///     #[injectable]
 ///     pub struct Facade<'a> {

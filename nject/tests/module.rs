@@ -1,5 +1,7 @@
 use nject::{injectable, provider};
 
+use crate::sub::Greeter;
+
 #[provider]
 struct InitProvider;
 
@@ -60,8 +62,34 @@ fn provide_with_module_with_ref_dep_should_export_its_members_correctly() {
     assert_eq!(facade, sub::expected_simple_ref_facade(&provider.0))
 }
 
+#[test]
+fn provide_with_module_with_dyn_dep_should_export_its_members_correctly() {
+    // Given
+    #[injectable]
+    #[provider]
+    struct Provider(#[import] sub::DynDepModule);
+    let provider = InitProvider.provide::<Provider>();
+    // When
+    let dep = provider.provide::<&dyn sub::Greeter>();
+    // Then
+    assert_eq!(dep.greet(), sub::GreeterOne.greet())
+}
+
 mod sub {
     use nject::{injectable, module};
+
+    pub trait Greeter {
+        fn greet(&self) -> &str;
+    }
+
+    #[injectable]
+    pub struct GreeterOne;
+
+    impl Greeter for GreeterOne {
+        fn greet(&self) -> &str {
+            "One"
+        }
+    }
 
     static REF_DEP: &SimpleRefDep = &SimpleRefDep(123);
 
@@ -86,6 +114,13 @@ mod sub {
     pub struct SimpleModule {
         #[export]
         hidden: SimpleDep,
+    }
+
+    #[injectable]
+    #[module]
+    pub struct DynDepModule {
+        #[export(dyn Greeter)]
+        dyn_dep: GreeterOne,
     }
 
     #[derive(PartialEq, Debug)]

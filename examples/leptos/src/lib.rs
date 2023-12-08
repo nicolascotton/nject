@@ -14,13 +14,11 @@ pub struct Provider {
 
 impl Provider {
     /// Initialize the Provider in static const PROVIDER.
-    pub fn init(cx: Scope) {
+    pub fn init() {
         #[provider]
-        #[provide(Scope, self.0)]
-        struct InitProvider(Scope);
+        struct InitProvider;
 
-        let init_prov = InitProvider(cx);
-        let prov = init_prov.provide::<Provider>();
+        let prov = InitProvider.provide::<Provider>();
         unsafe { std::ptr::swap(PROVIDER, Box::leak(Box::from(prov))) };
     }
 

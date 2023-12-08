@@ -1,11 +1,11 @@
-use leptos::{create_signal, ReadSignal, WriteSignal, Scope, SignalWith, SignalUpdate};
+use leptos::{create_signal, ReadSignal, WriteSignal, SignalWith, SignalUpdate};
 use nject::inject;
 use crate::Provider;
 
 #[inject({ 
-	let (read, write) = create_signal(cx, 0);
+	let (read, write) = create_signal(0);
 	Self { read, write }
-}, cx: Scope)]
+})]
 pub struct CounterStore {
 	read: ReadSignal<i32>,
 	write: WriteSignal<i32>

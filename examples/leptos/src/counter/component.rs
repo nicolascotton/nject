@@ -1,16 +1,15 @@
 use super::service::counter_service;
 use super::store::counter_store;
-use leptos::{component, view, IntoView, Scope};
+use leptos::{component, view, IntoView};
 
 #[component]
-pub fn SimpleCounter(cx: Scope) -> impl IntoView {
+pub fn SimpleCounter() -> impl IntoView {
     let value = || counter_store().map(|x| *x);
     let clear = |_| counter_service().clear();
     let decrement = |_| counter_service().decrement();
     let increment = |_| counter_service().increment();
 
     view! {
-        cx,
         <div>
             <button on:click=clear>"Clear"</button>
             <button on:click=decrement>"-1"</button>
