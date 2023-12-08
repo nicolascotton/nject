@@ -6,10 +6,9 @@ use actix_web::{
     App, Error,
 };
 use nject::{injectable, provider};
-use std::sync::Arc;
 use user::UserModule;
 
-type Prov = Data<Arc<Provider>>;
+type Prov = Data<&'static Provider>;
 
 #[injectable]
 #[provider]
@@ -28,7 +27,7 @@ impl Provider {
 }
 
 pub fn setup_app(
-    provider: Arc<Provider>,
+    provider: &'static Provider,
 ) -> App<
     impl ServiceFactory<
             ServiceRequest,

@@ -278,7 +278,7 @@ fn main() {
 }
 
 ```
-### Limitations
+#### Limitations
 1. Dependencies can only be exported by a single module.
 1. Modules can only export types defined in its crate.
 1. Generic parameters are not supported on modules.

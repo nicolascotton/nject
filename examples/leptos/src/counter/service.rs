@@ -3,11 +3,11 @@ use crate::Provider;
 use nject::injectable;
 
 #[injectable]
-pub struct CounterService<'a> {
-    store: &'a CounterStore,
+pub struct CounterService {
+    store: &'static CounterStore,
 }
 
-impl<'a> CounterService<'a> {
+impl CounterService {
     pub fn clear(&self) {
         self.store.update(|x| *x = 0);
     }
@@ -19,6 +19,6 @@ impl<'a> CounterService<'a> {
     }
 }
 
-pub fn counter_service<'a>() -> CounterService<'a> {
+pub fn counter_service() -> CounterService {
     Provider::inject::<CounterService>()
 }

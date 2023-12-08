@@ -9,7 +9,6 @@ use models::CreateUser;
 use nject::provider;
 use repository::{memory::MemoryRepository, Repository};
 use service::UserService;
-use std::{net::SocketAddr, sync::Arc};
 
 mod models;
 mod repository;
@@ -23,23 +22,22 @@ pub struct Provider {
 
 #[tokio::main]
 async fn main() {
+    let provider: &'static Provider = Box::leak(Box::new(Provider {
+        repository: MemoryRepository::new(),
+    }));
     let app = Router::new()
         .route("/api/users", post(create_user))
         .route("/api/users/:id", get(get_user))
-        .with_state(Arc::new(Provider {
-            repository: MemoryRepository::new(),
-        }));
+        .with_state(provider);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    println!("listening on {}", addr);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+    let addr = "0.0.0.0:3000";
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    println!("listening on {}", addr); // run our app with hyper, listening globally on port 3000
+    axum::serve(listener, app).await.unwrap();
 }
 
 async fn create_user(
-    State(prov): State<Arc<Provider>>,
+    State(prov): State<&'static Provider>,
     Json(user): Json<CreateUser>,
 ) -> impl IntoResponse {
     let service = prov.provide::<UserService>();
@@ -48,7 +46,7 @@ async fn create_user(
 }
 
 async fn get_user(
-    State(prov): State<Arc<Provider>>,
+    State(prov): State<&'static Provider>,
     Path(user_id): Path<usize>,
 ) -> impl IntoResponse {
     let service = prov.provide::<UserService>();
