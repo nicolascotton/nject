@@ -5,26 +5,21 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use models::CreateUser;
-use nject::provider;
-use repository::{memory::MemoryRepository, Repository};
-use service::UserService;
-
-mod models;
-mod repository;
-mod service;
+use axum_example::CreateUser;
+use axum_example::Module;
+use axum_example::UserService;
+use nject::{injectable, provider};
 
 #[provider]
-pub struct Provider {
-    #[provide(dyn Repository)]
-    repository: MemoryRepository,
-}
+#[injectable]
+pub struct Provider(#[import] Module);
 
 #[tokio::main]
 async fn main() {
-    let provider: &'static Provider = Box::leak(Box::new(Provider {
-        repository: MemoryRepository::new(),
-    }));
+    #[provider]
+    struct InitProvider;
+
+    let provider: &'static Provider = Box::leak(Box::new(InitProvider.provide()));
     let app = Router::new()
         .route("/api/users", post(create_user))
         .route("/api/users/:id", get(get_user))

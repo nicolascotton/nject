@@ -1,5 +1,4 @@
 use crate::models::{CreateUser, User};
-
 pub mod memory;
 
 pub trait Repository {

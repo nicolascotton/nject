@@ -1,16 +1,10 @@
 use super::{Repository, User};
+use nject::inject;
 use std::sync::Mutex;
 
+#[inject(Self { users: Mutex::new(Vec::new()) })]
 pub struct MemoryRepository {
     users: Mutex<Vec<User>>,
-}
-
-impl MemoryRepository {
-    pub fn new() -> Self {
-        Self {
-            users: Mutex::new(Vec::new()),
-        }
-    }
 }
 
 impl Repository for MemoryRepository {
