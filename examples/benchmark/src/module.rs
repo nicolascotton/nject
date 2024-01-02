@@ -35,27 +35,12 @@ struct ModuleDyn(
     #[export(dyn DepTrait10)] Dep10,
 );
 
-// #[injectable]
-// #[module]
-// struct ModuleImpl(
-//     #[export(ImplDepTrait1)] Dep1,
-//     #[export(ImplDepTrait2)] Dep2,
-//     #[export(ImplDepTrait3)] Dep3,
-//     #[export(ImplDepTrait4)] Dep4,
-//     #[export(ImplDepTrait5)] Dep5,
-//     #[export(ImplDepTrait6)] Dep6,
-//     #[export(ImplDepTrait7)] Dep7,
-//     #[export(ImplDepTrait8)] Dep8,
-//     #[export(ImplDepTrait9)] Dep9,
-//     #[export(ImplDepTrait10)] Dep10,
-// );
-
 #[injectable]
 #[provider]
 struct ModuleProvider(#[import] Module, #[import] ModuleDyn);
 
 #[bench]
-fn by_module_ref(b: &mut Bencher) {
+fn by_ref_from_module(b: &mut Bencher) {
     let provider = Provider.provide::<ModuleProvider>();
     b.iter(move || {
         for _ in 0..ITERATION_COUNT {
@@ -76,7 +61,7 @@ fn by_module_ref(b: &mut Bencher) {
 }
 
 #[bench]
-fn by_module_ref_dyn(b: &mut Bencher) {
+fn by_ref_dyn_from_module(b: &mut Bencher) {
     let provider = Provider.provide::<ModuleProvider>();
     b.iter(move || {
         for _ in 0..ITERATION_COUNT {

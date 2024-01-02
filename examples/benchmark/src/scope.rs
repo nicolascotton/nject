@@ -3,7 +3,7 @@ use nject::{injectable, provider};
 use test::Bencher;
 
 #[bench]
-fn by_scope_from_scope(b: &mut Bencher) {
+fn by_value_from_scope(b: &mut Bencher) {
     #[provider]
     #[scope(Dep1)]
     #[scope(Dep2)]
@@ -26,7 +26,7 @@ fn by_scope_from_scope(b: &mut Bencher) {
 }
 
 #[bench]
-fn by_scope_from_root(b: &mut Bencher) {
+fn by_ref_from_root(b: &mut Bencher) {
     #[injectable]
     struct Something;
 

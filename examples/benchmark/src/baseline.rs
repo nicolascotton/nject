@@ -1229,7 +1229,10 @@ fn by_ref_dyn(b: &mut Bencher) {
 }
 
 #[bench]
-fn by_scope_from_scope(b: &mut Bencher) {
+fn by_value_from_scope(b: &mut Bencher) {
+    struct Root;
+
+    let root = Root;
     b.iter(move || {
         for _ in 0..ITERATION_COUNT {
             let scope = (
@@ -1643,6 +1646,7 @@ fn by_scope_from_scope(b: &mut Bencher) {
                         ),
                     ),
                 ),
+                &root,
             );
             test::black_box((&scope.0, &scope.9));
         }
