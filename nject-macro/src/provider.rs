@@ -241,36 +241,67 @@ fn gen_scope_output(
         return proc_macro2::TokenStream::new();
     }
     let scope_ident = format_ident!("{ident}Scope");
-    let mut scope_generic_params = vec![quote!{'njectroot}];
+    let mut scope_generic_params = vec![quote!{'scope}];
     scope_generic_params.extend_from_slice(generic_params);
-    let mut scope_generic_keys = vec![quote!{'njectroot}];
+    let mut scope_generic_keys = vec![quote!{'scope}];
     scope_generic_keys.extend_from_slice(generic_keys);
 
     let scope_fields = scope_input_attr
         .iter()
         .map(|a| a.parse_args_with(syn::Field::parse_unnamed).unwrap())
-        .map(|f| quote!{#[provide] #f})
         .collect::<Vec<_>>();
+    let arg_scope_fields =  scope_fields.iter()
+        .map(|f| match f.attrs.iter().filter(|a| match &a.meta {
+            syn::Meta::Path(p) => p.is_ident("provide"), 
+            _ => false,
+        }).last() {
+            Some(_) => true,
+            None => false,
+        }).collect::<Vec<_>>();
+    let scope_field_outputs = scope_fields.iter()
+        .enumerate()
+        .map(|(i, f)| match arg_scope_fields[i] {
+           true => quote!{#f},
+           false => quote!{#[provide] #f},
+        });
     let root_path = syn::Index::from(scope_fields.len());
     let fields_path_prefix = quote!{#root_path.};
     let import_outputs = gen_imports_for_import_attr(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &fields_path_prefix, &fields, &import_attr_indexes);
     let provide_outputs = gen_providers_for_provide_attr(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &fields_path_prefix, &fields, &provide_attr_indexes);
     let input_provide_outputs = gen_providers_for_provide_input_attributes(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &provide_input_attr);
-    let scope_field_provides = scope_fields.iter().map(|_| quote!{self.provide()} );
+    let scope_field_provides = scope_fields.iter()
+        .enumerate()
+        .map(|(i, _)| match arg_scope_fields[i] {
+            true => {
+                let ident = format_ident!("v{i}");
+                quote!{#ident}
+            },
+            false => quote!{self.provide()} 
+        });
+    let scope_args = scope_fields.iter()
+        .enumerate()
+        .filter_map(|(i, f)| match arg_scope_fields[i] {
+            true => {
+                let ident = format_ident!("v{i}");
+                let ty = &f.ty;
+                Some(quote!{#ident: #ty})
+            },
+            false => None
+        });
 
     quote!{
         impl<#(#generic_params),*> #ident<#(#generic_keys),*>
             where #where_predicates
         {
             #[inline]
-            pub fn scope<'njectroot>(&'njectroot self) -> #scope_ident<#(#scope_generic_keys),*>
+            pub fn scope<'scope>(&'scope self #(,#scope_args)*) -> #scope_ident<#(#scope_generic_keys),*>
             {
                 #scope_ident(#(#scope_field_provides,)* self)
             }
         }
 
         #[provider]
-        #visibility struct #scope_ident<'scope, #(#generic_params),*>(#(#scope_fields,)* &'scope #ident<#(#generic_keys),*>)
+        #visibility struct #scope_ident<'scope, #(#generic_params),*>(#(#scope_field_outputs,)* &'scope #ident<#(#generic_keys),*>)
             where #where_predicates;
 
         #(#import_outputs)*

@@ -153,6 +153,25 @@ fn provide_with_generic_root_should_give_corresponding_value() {
     assert_eq!(value.0.value(), 456);
 }
 
+#[test]
+fn provide_with_empty_provide_attr_on_scope_type_should_request_value_as_scope_args() {
+    // Given
+    #[injectable]
+    #[derive(PartialEq, Debug)]
+    struct ScopeDep<'a>(&'a Integer, &'a i32);
+
+    #[provider]
+    #[scope(#[provide] Integer)]
+    #[scope(#[provide] &'scope i32)]
+    struct Root;
+
+    let scope = Root.scope(Integer(1), &2);
+    // When
+    let value = scope.provide::<ScopeDep>();
+    // Then
+    assert_eq!(value, ScopeDep(&Integer(1), &2));
+}
+
 trait IntegerOwner {
     fn value(&self) -> i32;
 }
