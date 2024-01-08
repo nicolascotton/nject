@@ -154,15 +154,15 @@ fn provide_with_generic_root_should_give_corresponding_value() {
 }
 
 #[test]
-fn provide_with_empty_provide_attr_on_scope_type_should_request_value_as_scope_args() {
+fn provide_with_arg_attr_on_scope_type_should_request_value_as_scope_args() {
     // Given
     #[injectable]
     #[derive(PartialEq, Debug)]
     struct ScopeDep<'a>(&'a Integer, &'a i32);
 
     #[provider]
-    #[scope(#[provide] Integer)]
-    #[scope(#[provide] &'scope i32)]
+    #[scope(#[arg] Integer)]
+    #[scope(#[arg] &'scope i32)]
     struct Root;
 
     let scope = Root.scope(Integer(1), &2);

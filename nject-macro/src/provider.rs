@@ -252,18 +252,13 @@ fn gen_scope_output(
         .collect::<Vec<_>>();
     let arg_scope_fields =  scope_fields.iter()
         .map(|f| match f.attrs.iter().filter(|a| match &a.meta {
-            syn::Meta::Path(p) => p.is_ident("provide"), 
+            syn::Meta::Path(p) => p.is_ident("arg"), 
             _ => false,
         }).last() {
             Some(_) => true,
             None => false,
         }).collect::<Vec<_>>();
-    let scope_field_outputs = scope_fields.iter()
-        .enumerate()
-        .map(|(i, f)| match arg_scope_fields[i] {
-           true => quote!{#f},
-           false => quote!{#[provide] #f},
-        });
+    let scope_field_outputs = scope_fields.iter().map(|f| quote!{#[provide] #f});
     let root_path = syn::Index::from(scope_fields.len());
     let fields_path_prefix = quote!{#root_path.};
     let import_outputs = gen_imports_for_import_attr(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &fields_path_prefix, &fields, &import_attr_indexes);
@@ -301,6 +296,8 @@ fn gen_scope_output(
         }
 
         #[provider]
+        #[injectable]
+        #[derive(nject::ScopeHelperAttr)]
         #visibility struct #scope_ident<'scope, #(#generic_params),*>(#(#scope_field_outputs,)* &'scope #ident<#(#generic_keys),*>)
             where #where_predicates;
 

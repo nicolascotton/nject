@@ -27,6 +27,12 @@ pub fn provider_helper_attr(_item: TokenStream) -> TokenStream {
     TokenStream::new()
 }
 
+/// For internal purposes only. Should not be used.
+#[proc_macro_derive(ScopeHelperAttr, attributes(arg))]
+pub fn scope_helper_attr(_item: TokenStream) -> TokenStream {
+    TokenStream::new()
+}
+
 /// Attribute to mark a struct as injectable.
 /// ```rust
 /// use nject::{injectable, provider};
