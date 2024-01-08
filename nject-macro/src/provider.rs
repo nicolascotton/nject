@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use proc_macro;
 use quote::{quote, format_ident};
 use syn::{parse_macro_input, DeriveInput, GenericParam, Type, Expr, Token, parse::{ParseStream, Parse}, Ident};
@@ -240,7 +242,6 @@ fn gen_scope_output(
     if scope_input_attr.is_empty() {
         return proc_macro2::TokenStream::new();
     }
-    let scope_ident = format_ident!("{ident}Scope");
     let mut scope_generic_params = vec![quote!{'scope}];
     scope_generic_params.extend_from_slice(generic_params);
     let mut scope_generic_keys = vec![quote!{'scope}];
@@ -248,8 +249,22 @@ fn gen_scope_output(
 
     let scope_fields = scope_input_attr
         .iter()
-        .map(|a| a.parse_args_with(syn::Field::parse_unnamed).unwrap())
+        .map(|a| a.parse_args_with(syn::Field::parse_unnamed)
+            .unwrap_or_else(|_| a.parse_args_with(syn::Field::parse_named).unwrap()))
         .collect::<Vec<_>>();
+    let grouped_fields = group_by(scope_fields.iter(), |k| match &k.ident {
+        Some(i) => Some(i.to_string()),
+        None => None,
+    });
+    let scope_outputs = grouped_fields.iter().map(|(scope_name, scope_fields)|{
+        let scope_ident = match scope_name {
+            Some(n) => format_ident!("{}{}Scope", ident, snake_to_pascal(n)),
+            None => format_ident!("{ident}Scope"),
+        };
+        let scope_fn_ident = match scope_name {
+            Some(n) => format_ident!("{n}_scope"),
+            None => format_ident!("scope"),
+        };
     let arg_scope_fields =  scope_fields.iter()
         .map(|f| match f.attrs.iter().filter(|a| match &a.meta {
             syn::Meta::Path(p) => p.is_ident("arg"), 
@@ -258,51 +273,85 @@ fn gen_scope_output(
             Some(_) => true,
             None => false,
         }).collect::<Vec<_>>();
-    let scope_field_outputs = scope_fields.iter().map(|f| quote!{#[provide] #f});
-    let root_path = syn::Index::from(scope_fields.len());
-    let fields_path_prefix = quote!{#root_path.};
-    let import_outputs = gen_imports_for_import_attr(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &fields_path_prefix, &fields, &import_attr_indexes);
-    let provide_outputs = gen_providers_for_provide_attr(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &fields_path_prefix, &fields, &provide_attr_indexes);
-    let input_provide_outputs = gen_providers_for_provide_input_attributes(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &provide_input_attr);
-    let scope_field_provides = scope_fields.iter()
-        .enumerate()
-        .map(|(i, _)| match arg_scope_fields[i] {
-            true => {
-                let ident = format_ident!("v{i}");
-                quote!{#ident}
-            },
-            false => quote!{self.provide()} 
+        let scope_field_outputs = scope_fields.iter().map(|f| {
+            let mut f = f.to_owned().to_owned();
+            f.ident = None;
+            quote!{#[provide] #f}
         });
-    let scope_args = scope_fields.iter()
-        .enumerate()
-        .filter_map(|(i, f)| match arg_scope_fields[i] {
-            true => {
-                let ident = format_ident!("v{i}");
-                let ty = &f.ty;
-                Some(quote!{#ident: #ty})
-            },
-            false => None
-        });
+        let root_path = syn::Index::from(scope_fields.len());
+        let fields_path_prefix = quote!{#root_path.};
+        let import_outputs = gen_imports_for_import_attr(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &fields_path_prefix, &fields, &import_attr_indexes);
+        let provide_outputs = gen_providers_for_provide_attr(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &fields_path_prefix, &fields, &provide_attr_indexes);
+        let input_provide_outputs = gen_providers_for_provide_input_attributes(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &provide_input_attr);
+        let scope_field_provides = scope_fields.iter()
+            .enumerate()
+            .map(|(i, _)| match arg_scope_fields[i] {
+                true => {
+                    let ident = format_ident!("v{i}");
+                    quote!{#ident}
+                },
+                false => quote!{self.provide()} 
+            });
+        let scope_args = scope_fields.iter()
+            .enumerate()
+            .filter_map(|(i, f)| match arg_scope_fields[i] {
+                true => {
+                    let ident = format_ident!("v{i}");
+                    let ty = &f.ty;
+                    Some(quote!{#ident: #ty})
+                },
+                false => None
+            });
 
-    quote!{
-        impl<#(#generic_params),*> #ident<#(#generic_keys),*>
-            where #where_predicates
-        {
-            #[inline]
-            pub fn scope<'scope>(&'scope self #(,#scope_args)*) -> #scope_ident<#(#scope_generic_keys),*>
+        quote!{
+
+            impl<#(#generic_params),*> #ident<#(#generic_keys),*>
+                where #where_predicates
             {
-                #scope_ident(#(#scope_field_provides,)* self)
+                #[inline]
+                pub fn #scope_fn_ident<'scope>(&'scope self #(,#scope_args)*) -> #scope_ident<#(#scope_generic_keys),*>
+                {
+                    #scope_ident(#(#scope_field_provides,)* self)
+                }
             }
+
+            #[provider]
+            #[injectable]
+            #[derive(nject::ScopeHelperAttr)]
+            #visibility struct #scope_ident<'scope, #(#generic_params),*>(#(#scope_field_outputs,)* &'scope #ident<#(#generic_keys),*>)
+                where #where_predicates;
+
+            #(#import_outputs)*
+            #(#provide_outputs)*
+            #(#input_provide_outputs)*
         }
+    });
+    quote!{#(#scope_outputs)*}
+}
 
-        #[provider]
-        #[injectable]
-        #[derive(nject::ScopeHelperAttr)]
-        #visibility struct #scope_ident<'scope, #(#generic_params),*>(#(#scope_field_outputs,)* &'scope #ident<#(#generic_keys),*>)
-            where #where_predicates;
-
-        #(#import_outputs)*
-        #(#provide_outputs)*
-        #(#input_provide_outputs)*
+// Groups the items by a key.
+fn group_by<T, K, F>(iter: impl Iterator<Item = T>, key: F) -> HashMap<K, Vec<T>>
+where
+    F: Fn(&T) -> K,
+    K: std::hash::Hash + Eq,
+{
+    let mut map = HashMap::new();
+    for item in iter {
+        let k = key(&item);
+        map.entry(k).or_insert_with(Vec::new).push(item);
     }
+    map
+}
+
+// Converts a snake case string to a pascal case string
+fn snake_to_pascal(snake: &str) -> String {
+    let words = snake.split('_');
+    words.map(|word| {
+        let mut chars = word.chars();
+        let first = chars.next();
+        match first {
+            Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+            None => String::new(),
+        }
+    }).collect()
 }

@@ -172,6 +172,27 @@ fn provide_with_arg_attr_on_scope_type_should_request_value_as_scope_args() {
     assert_eq!(value, ScopeDep(&Integer(1), &2));
 }
 
+#[test]
+fn provide_with_named_scope_should_use_corresponding_scope() {
+    // Given
+    #[injectable]
+    #[derive(PartialEq, Debug)]
+    struct ScopeDep<'a>(&'a Integer, &'a i32, &'a str);
+
+    #[provider]
+    #[provide(&'prov i32, &2)]
+    #[scope(#[arg] &'scope f32)]
+    #[scope(b: Integer)]
+    #[scope(#[arg] b: &'scope str)]
+    struct Root;
+
+    let scope = Root.b_scope("V1");
+    // When
+    let value = scope.provide::<ScopeDep>();
+    // Then
+    assert_eq!(value, ScopeDep(&Integer(123), &2, "V1"));
+}
+
 trait IntegerOwner {
     fn value(&self) -> i32;
 }
