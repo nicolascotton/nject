@@ -1,6 +1,7 @@
-use proc_macro::TokenStream;
-use quote::quote;
-use syn::{parse_macro_input, DeriveInput, GenericParam, Type, Expr, Token, parse::{ParseStream, Parse}};
+use std::collections::HashMap;
+use proc_macro;
+use quote::{quote, format_ident};
+use syn::{parse_macro_input, DeriveInput, GenericParam, Type, Expr, Token, parse::{ParseStream, Parse}, Ident, Field};
 
 struct TypeExpr(Type, Expr);
 impl Parse for TypeExpr {
@@ -12,7 +13,7 @@ impl Parse for TypeExpr {
     }
 }
 
-pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
+pub(crate) fn handle_provider(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
     let ident = &input.ident;
     let fields = match &input.data {
@@ -34,6 +35,7 @@ pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
             GenericParam::Lifetime(l) => quote! { #l },
         })
         .collect::<Vec<_>>();
+    let generic_params = generic_params.iter().map(|p| quote!{#p}).collect::<Vec<_>>();
     let where_predicates = match &input.generics.where_clause {
         Some(w) => {
             let predicates = &w.predicates;
@@ -63,7 +65,56 @@ pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
             }
         })
         .collect::<Vec<_>>();
-    let provide_input_attr = input.attrs.iter().filter(|a| a.path().is_ident("provide"));
+    let provide_input_attr = input.attrs.iter().filter(|a| a.path().is_ident("provide")).collect::<Vec<_>>();
+    let scope_attr = input.attrs.iter().filter(|a| a.path().is_ident("scope")).collect::<Vec<_>>();
+
+    let fields_path_prefix = quote!{};
+    let import_outputs = gen_imports_for_import_attr(&ident, &generic_params, &generic_keys, &where_predicates, &fields_path_prefix, &fields, &import_attr_indexes);
+    let provide_outputs = gen_providers_for_provide_attr(&ident, &generic_params, &generic_keys, &where_predicates, &fields_path_prefix, &fields, &provide_attr_indexes);
+    let input_provide_outputs = gen_providers_for_provide_input_attributes(&ident, &generic_params, &generic_keys, &where_predicates, &provide_input_attr);
+    let scope_output = gen_scope_output(&input.vis, &ident, &generic_params, &generic_keys, &where_predicates, &fields, &import_attr_indexes, &provide_attr_indexes, &provide_input_attr, &scope_attr);
+
+    let output = quote! {
+        #[derive(nject::ProviderHelperAttr)]
+        #input
+
+        impl<'prov, #(#generic_params,)*Njecty> nject::Provider<'prov, Njecty> for #ident<#(#generic_keys),*>
+            where Njecty: nject::Injectable<'prov, Njecty, #ident<#(#generic_keys),*>>,#where_predicates
+        {
+            #[inline]
+            fn provide(&'prov self) -> Njecty {
+                Njecty::inject(self)
+            }
+        }
+
+        impl<#(#generic_params),*> #ident<#(#generic_keys),*>
+            where #where_predicates
+        {
+            #[inline]
+            pub fn provide<'prov, Njecty>(&'prov self) -> Njecty
+                where Self: nject::Provider<'prov, Njecty>
+            {
+                <Self as nject::Provider<'prov, Njecty>>::provide(self)
+            }
+        }
+        #(#import_outputs)*
+        #(#provide_outputs)*
+        #(#input_provide_outputs)*
+
+        #scope_output
+    };
+    output.into()
+}
+
+fn gen_imports_for_import_attr(
+    ident: & Ident, 
+    generic_params: &[proc_macro2::TokenStream], 
+    generic_keys: &[proc_macro2::TokenStream], 
+    where_predicates: &proc_macro2::TokenStream,
+    fields_path_prefix: &proc_macro2::TokenStream,
+    fields: &[&syn::Field],
+    import_attr_indexes: &[usize]
+ ) -> Vec<proc_macro2::TokenStream> {
     let import_outputs = import_attr_indexes.iter().map(|i| {
         let field = fields[*i];
         let ty = &field.ty;
@@ -87,11 +138,23 @@ pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
             {
                 #[inline]
                 fn reference(&self) -> & #ty_output {
-                    &self.#field_key
+                    &self.#fields_path_prefix #field_key
                 }
             }
         }
     });
+    import_outputs.collect()
+}
+
+fn gen_providers_for_provide_attr(
+    ident: &Ident, 
+    generic_params: &[proc_macro2::TokenStream], 
+    generic_keys: &[proc_macro2::TokenStream], 
+    where_predicates: &proc_macro2::TokenStream,
+    fields_path_prefix: &proc_macro2::TokenStream,
+    fields: &[&syn::Field], 
+    provide_attr_indexes: &[(usize, Vec<&syn::Attribute>)]
+) -> Vec<proc_macro2::TokenStream> {
     let provide_outputs = provide_attr_indexes.iter().map(|(i, attrs)| {
         let field = fields[*i];
         let (key_prefix, ref_prefix) = if let Type::Reference(r) = &field.ty {
@@ -123,7 +186,7 @@ pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
             {
                 #[inline]
                 fn provide(&'prov self) -> #ty_output {
-                    #key_prefix self.#field_key
+                    #key_prefix self.#fields_path_prefix #field_key
                 }
             }
         });
@@ -132,12 +195,22 @@ pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
             #(#outputs)*
         }
     });
+    provide_outputs.collect()
+}
 
+fn gen_providers_for_provide_input_attributes<'a>(
+    ident: &Ident, 
+    generic_params: &[proc_macro2::TokenStream], 
+    generic_keys: &[proc_macro2::TokenStream], 
+    where_predicates: &proc_macro2::TokenStream,
+    provide_input_attr: &[&syn::Attribute],
+) -> Vec<proc_macro2::TokenStream> {
     let input_provide_outputs = provide_input_attr
+        .iter()
         .map(|a| a.parse_args::<TypeExpr>().unwrap())
         .map(|t| {
             let ty = t.0;
-            let value=t.1;
+            let value= t.1;
             quote!{ 
 
                 impl<'prov, #(#generic_params),*> nject::Provider<'prov, #ty> for #ident<#(#generic_keys),*>
@@ -150,33 +223,145 @@ pub(crate) fn handle_provider(item: TokenStream) -> TokenStream {
                 }
             }
         });
+    input_provide_outputs.collect()
+}
 
-    let output = quote! {
-        #[derive(nject::ProviderHelperAttr)]
-        #input
+fn gen_scope_output(
+    visibility: &syn::Visibility,
+    ident: &Ident, 
+    generic_params: &[proc_macro2::TokenStream], 
+    generic_keys: &[proc_macro2::TokenStream], 
+    where_predicates: &proc_macro2::TokenStream,
+    fields: &[&syn::Field], 
+    import_attr_indexes: &[usize],
+    provide_attr_indexes: &[(usize, Vec<&syn::Attribute>)],
+    provide_input_attr: &[&syn::Attribute],
+    scope_input_attr: &[&syn::Attribute]
+) -> proc_macro2::TokenStream {
+    if scope_input_attr.is_empty() {
+        return proc_macro2::TokenStream::new();
+    }
+    let mut scope_generic_params = vec![quote!{'scope}];
+    scope_generic_params.extend_from_slice(generic_params);
+    let mut scope_generic_keys = vec![quote!{'scope}];
+    scope_generic_keys.extend_from_slice(generic_keys);
 
-        impl<'prov, #(#generic_params,)*Njecty> nject::Provider<'prov, Njecty> for #ident<#(#generic_keys),*>
-            where Njecty: nject::Injectable<'prov, Njecty, #ident<#(#generic_keys),*>>,#where_predicates
-        {
-            #[inline]
-            fn provide(&'prov self) -> Njecty {
-                Njecty::inject(self)
-            }
-        }
+    let scope_fields = scope_input_attr
+        .iter()
+        .map(|a| a.parse_args_with(parse_scope_field).expect("Unable to parse scope field."))
+        .collect::<Vec<_>>();
+    let grouped_fields = group_by(scope_fields.iter(), |k| match &k.ident {
+        Some(i) => Some(i.to_string()),
+        None => None,
+    });
+    let scope_outputs = grouped_fields.iter().map(|(scope_name, scope_fields)|{
+        let scope_ident = match scope_name {
+            Some(n) => format_ident!("{}{}Scope", ident, snake_to_pascal(n)),
+            None => format_ident!("{ident}Scope"),
+        };
+        let scope_fn_ident = match scope_name {
+            Some(n) => format_ident!("{n}_scope"),
+            None => format_ident!("scope"),
+        };
+    let arg_scope_fields =  scope_fields.iter()
+        .map(|f| match f.attrs.iter().filter(|a| match &a.meta {
+            syn::Meta::Path(p) => p.is_ident("arg"), 
+            _ => false,
+        }).last() {
+            Some(_) => true,
+            None => false,
+        }).collect::<Vec<_>>();
+        let scope_field_outputs = scope_fields.iter().map(|f| {
+            let mut f = f.to_owned().to_owned();
+            f.ident = None;
+            quote!{#[provide] #f}
+        });
+        let root_path = syn::Index::from(scope_fields.len());
+        let fields_path_prefix = quote!{#root_path.};
+        let import_outputs = gen_imports_for_import_attr(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &fields_path_prefix, &fields, &import_attr_indexes);
+        let provide_outputs = gen_providers_for_provide_attr(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &fields_path_prefix, &fields, &provide_attr_indexes);
+        let input_provide_outputs = gen_providers_for_provide_input_attributes(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &provide_input_attr);
+        let scope_field_provides = scope_fields.iter()
+            .enumerate()
+            .map(|(i, _)| match arg_scope_fields[i] {
+                true => {
+                    let ident = format_ident!("v{i}");
+                    quote!{#ident}
+                },
+                false => quote!{self.provide()} 
+            });
+        let scope_args = scope_fields.iter()
+            .enumerate()
+            .filter_map(|(i, f)| match arg_scope_fields[i] {
+                true => {
+                    let ident = format_ident!("v{i}");
+                    let ty = &f.ty;
+                    Some(quote!{#ident: #ty})
+                },
+                false => None
+            });
 
-        impl<#(#generic_params),*> #ident<#(#generic_keys),*>
-            where #where_predicates
-        {
-            #[inline]
-            pub fn provide<'prov, Njecty>(&'prov self) -> Njecty
-                where Self: nject::Provider<'prov, Njecty>
+        quote!{
+
+            impl<#(#generic_params),*> #ident<#(#generic_keys),*>
+                where #where_predicates
             {
-                <Self as nject::Provider<'prov, Njecty>>::provide(self)
+                #[inline]
+                pub fn #scope_fn_ident<'scope>(&'scope self #(,#scope_args)*) -> #scope_ident<#(#scope_generic_keys),*>
+                {
+                    #scope_ident(#(#scope_field_provides,)* self)
+                }
             }
+
+            #[provider]
+            #[injectable]
+            #[derive(nject::ScopeHelperAttr)]
+            #visibility struct #scope_ident<'scope, #(#generic_params),*>(#(#scope_field_outputs,)* &'scope #ident<#(#generic_keys),*>)
+                where #where_predicates;
+
+            #(#import_outputs)*
+            #(#provide_outputs)*
+            #(#input_provide_outputs)*
         }
-        #(#import_outputs)*
-        #(#provide_outputs)*
-        #(#input_provide_outputs)*
-    };
-    output.into()
+    });
+    quote!{#(#scope_outputs)*}
+}
+
+// Groups the items by a key.
+fn group_by<T, K, F>(iter: impl Iterator<Item = T>, key: F) -> HashMap<K, Vec<T>>
+where
+    F: Fn(&T) -> K,
+    K: std::hash::Hash + Eq,
+{
+    let mut map = HashMap::new();
+    for item in iter {
+        let k = key(&item);
+        map.entry(k).or_insert_with(Vec::new).push(item);
+    }
+    map
+}
+
+// Converts a snake case string to a pascal case string
+fn snake_to_pascal(snake: &str) -> String {
+    let words = snake.split('_');
+    words.map(|word| {
+        let mut chars = word.chars();
+        let first = chars.next();
+        match first {
+            Some(c) => c.to_uppercase().collect::<String>() + chars.as_str(),
+            None => String::new(),
+        }
+    }).collect()
+}
+
+fn parse_scope_field(input: ParseStream) -> syn::Result<Field> {
+    if input.peek(Ident) && input.peek2(Token![:]) {
+        let ident = Ident::parse(input)?;
+        let _token: Token![:] = input.parse()?;
+        let mut field = Field::parse_unnamed(input)?;
+        field.ident = Some(ident);
+        Ok(field)
+    } else {
+        Field::parse_unnamed(input)
+    }
 }

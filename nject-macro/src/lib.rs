@@ -22,8 +22,14 @@ pub fn module_helper_attr(_item: TokenStream) -> TokenStream {
 }
 
 /// For internal purposes only. Should not be used.
-#[proc_macro_derive(ProviderHelperAttr, attributes(import, provide))]
+#[proc_macro_derive(ProviderHelperAttr, attributes(import, provide, scope))]
 pub fn provider_helper_attr(_item: TokenStream) -> TokenStream {
+    TokenStream::new()
+}
+
+/// For internal purposes only. Should not be used.
+#[proc_macro_derive(ScopeHelperAttr, attributes(arg))]
+pub fn scope_helper_attr(_item: TokenStream) -> TokenStream {
     TokenStream::new()
 }
 
