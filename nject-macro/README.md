@@ -283,6 +283,54 @@ fn main() {
 1. Modules can only export types defined in its crate.
 1. Generic parameters are not supported on modules.
 
+### Use scopes to scope dependencies
+```rust
+use nject::{injectable, module, provider};
+
+#[injectable]
+struct ModuleDep;
+
+#[injectable]
+#[module]
+struct ScopeModule {
+    #[export]
+    module_dep: ModuleDep,
+}
+
+#[injectable]
+struct RootDep;
+
+#[injectable]
+struct ScopeDep;
+
+#[injectable]
+struct ScopeFacade<'a> {
+    root_dep: &'a RootDep, 
+    scope_dep: &'a ScopeDep,
+    scope_module_dep: &'a ModuleDep,
+}
+
+#[injectable]
+#[provider]
+#[scope(ScopeDep)]
+#[scope(#[import] ScopeModule)]
+#[scope(other: #[arg] &'scope ScopeDep)]
+#[scope(other: #[arg] &'scope ModuleDep)]
+struct Provider(#[provide] RootDep);
+
+fn main() {
+    #[provider]
+    struct InitProvider;
+
+    let provider = InitProvider.provide::<Provider>();
+    let scope = provider.scope();
+    let scope_facade = scope.provide::<ScopeFacade>();
+
+    let other_scope = provider.other_scope(scope_facade.scope_dep, scope_facade.scope_module_dep);
+    let _other_scope_facade = other_scope.provide::<ScopeFacade>();
+}
+```
+
 ## Examples
 You can look into the [axum](https://github.com/nicolascotton/nject/tree/main/examples/axum)/[actix](https://github.com/nicolascotton/nject/tree/main/examples/actix) example for a Web API use case or into the [Leptos](https://github.com/nicolascotton/nject/tree/main/examples/leptos) example for a Web App.
 ## Credits

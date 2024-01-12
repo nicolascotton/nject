@@ -1654,7 +1654,7 @@ fn by_value_from_scope(b: &mut Bencher) {
 }
 
 #[bench]
-fn by_scope_from_root(b: &mut Bencher) {
+fn by_ref_from_scope_root(b: &mut Bencher) {
     let root = (
         Dep1(123),
         Dep2(Dep1(123)),
