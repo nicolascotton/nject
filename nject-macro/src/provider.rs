@@ -1,8 +1,7 @@
 use std::collections::HashMap;
-
 use proc_macro;
 use quote::{quote, format_ident};
-use syn::{parse_macro_input, DeriveInput, GenericParam, Type, Expr, Token, parse::{ParseStream, Parse}, Ident};
+use syn::{parse_macro_input, DeriveInput, GenericParam, Type, Expr, Token, parse::{ParseStream, Parse}, Ident, Field};
 
 struct TypeExpr(Type, Expr);
 impl Parse for TypeExpr {
@@ -249,8 +248,7 @@ fn gen_scope_output(
 
     let scope_fields = scope_input_attr
         .iter()
-        .map(|a| a.parse_args_with(syn::Field::parse_unnamed)
-            .unwrap_or_else(|_| a.parse_args_with(syn::Field::parse_named).unwrap()))
+        .map(|a| a.parse_args_with(parse_scope_field).expect("Unable to parse scope field."))
         .collect::<Vec<_>>();
     let grouped_fields = group_by(scope_fields.iter(), |k| match &k.ident {
         Some(i) => Some(i.to_string()),
@@ -354,4 +352,16 @@ fn snake_to_pascal(snake: &str) -> String {
             None => String::new(),
         }
     }).collect()
+}
+
+fn parse_scope_field(input: ParseStream) -> syn::Result<Field> {
+    if input.peek(Ident) && input.peek2(Token![:]) {
+        let ident = Ident::parse(input)?;
+        let _token: Token![:] = input.parse()?;
+        let mut field = Field::parse_unnamed(input)?;
+        field.ident = Some(ident);
+        Ok(field)
+    } else {
+        Field::parse_unnamed(input)
+    }
 }

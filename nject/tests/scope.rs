@@ -183,7 +183,7 @@ fn provide_with_named_scope_should_use_corresponding_scope() {
     #[provide(&'prov i32, &2)]
     #[scope(#[arg] &'scope f32)]
     #[scope(b: Integer)]
-    #[scope(#[arg] b: &'scope str)]
+    #[scope(b: #[arg] &'scope str)]
     struct Root;
 
     let scope = Root.b_scope("V1");
