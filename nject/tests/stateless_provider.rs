@@ -175,7 +175,7 @@ struct NonInjectableStruct {
     value: i32,
 }
 
-#[inject(Self { value: 123, injectable_dep: dep }, dep: StructWithoutDeps)]
+#[inject(|dep: StructWithoutDeps| Self { value: 123, injectable_dep: dep })]
 #[derive(Debug, PartialEq)]
 struct PartiallyInjectableStruct {
     value: i32,
@@ -204,6 +204,6 @@ struct StructWithNonInjectableUnnamedDepsAndInjectAttr(
 #[injectable]
 #[derive(Debug, PartialEq)]
 struct StructWithPartiallyInjectableDepAndInjectAttr(
-    #[inject(PartiallyInjectableStruct { value: 111, injectable_dep }, injectable_dep: StructWithoutDeps)]
+    #[inject(|injectable_dep: StructWithoutDeps| PartiallyInjectableStruct { value: 111, injectable_dep })]
      PartiallyInjectableStruct,
 );

@@ -1,21 +1,19 @@
+use crate::core::FactoryExpr;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input,
-    punctuated::Punctuated,
-    DeriveInput, Expr, GenericParam, Token, TypeParam,
+    parse_macro_input, DeriveInput, Expr, GenericParam, PatType, Token,
 };
 
-struct InjectExpr(Expr, Punctuated<TypeParam, Token![,]>);
+struct InjectExpr(Box<Expr>, Vec<PatType>);
 impl Parse for InjectExpr {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let parsed_type = input.parse()?;
-        if input.parse::<Token![,]>().is_ok() {
-            let parsed_value = Punctuated::parse_separated_nonempty(input)?;
-            Ok(InjectExpr(parsed_type, parsed_value))
+        if input.peek(Token![|]) {
+            let expr = FactoryExpr::parse(input)?;
+            Ok(InjectExpr(expr.body, expr.inputs))
         } else {
-            Ok(InjectExpr(parsed_type, Punctuated::new()))
+            Ok(InjectExpr(input.parse()?, vec![]))
         }
     }
 }
@@ -50,7 +48,7 @@ pub(crate) fn handle_inject(item: TokenStream, attr: TokenStream) -> TokenStream
         true => quote! { 'prov: #(#lifetime_keys)+*, },
         false => quote! {},
     };
-    let prov_types = attributes.1.iter().map(|x| &x.bounds).collect::<Vec<_>>();
+    let prov_types = attributes.1.iter().map(|x| &x.ty).collect::<Vec<_>>();
     let where_predicates = match &input.generics.where_clause {
         Some(w) => {
             let predicates = &w.predicates;

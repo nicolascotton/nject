@@ -1,4 +1,5 @@
 #![doc = include_str!("../README.md")]
+mod core;
 mod inject;
 mod injectable;
 mod module;
@@ -61,7 +62,7 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 ///     value: i32,
 /// }
 ///
-/// #[inject(Self(12, injectable_dep), injectable_dep: DepOne)]
+/// #[inject(|injectable_dep: DepOne| Self(12, injectable_dep))]
 /// struct DepTwo(i32, DepOne);
 ///
 /// #[injectable]

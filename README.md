@@ -192,10 +192,10 @@ struct NonInjectable {
     non_injectable_value: i32,
 }
 
-#[inject(Self { 
+#[inject(|injectable_dep: InjectableFromInjectAttr| Self { 
     non_injectable_value: injectable_dep.non_injectable_value + 10, 
     injectable_dep 
-}, injectable_dep: InjectableFromInjectAttr)]
+})]
 struct PartiallyInjectable {
     non_injectable_value: i32,
     injectable_dep: InjectableFromInjectAttr
@@ -209,10 +209,10 @@ struct Facade {
     dep_from_inject_attr: NonInjectable,
     #[inject(InjectableFromInjectAttr { non_injectable_value: 789 })]
     dep_from_inject_attr_override: InjectableFromInjectAttr,
-    #[inject(PartiallyInjectable {
+    #[inject(|injectable_dep: InjectableFromInjectAttr| PartiallyInjectable {
         non_injectable_value: 111, 
         injectable_dep 
-    }, injectable_dep: InjectableFromInjectAttr)]
+    })]
     dep_from_partial_inject_attr_override: PartiallyInjectable,
 }
 

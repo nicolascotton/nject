@@ -1,21 +1,19 @@
+use crate::core::FactoryExpr;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input,
-    punctuated::Punctuated,
-    DeriveInput, Expr, GenericParam, Ident, Token, Type, TypeParam,
+    parse_macro_input, DeriveInput, Expr, GenericParam, Ident, PatType, Token, Type,
 };
 
-struct InjectHelperExpr(Expr, Punctuated<TypeParam, Token![,]>);
-impl Parse for InjectHelperExpr {
+struct InjectExpr(Box<Expr>, Vec<PatType>);
+impl Parse for InjectExpr {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let parsed_type = input.parse()?;
-        if input.parse::<Token![,]>().is_ok() {
-            let parsed_value = Punctuated::parse_separated_nonempty(&input)?;
-            Ok(Self(parsed_type, parsed_value))
+        if input.peek(Token![|]) {
+            let expr = FactoryExpr::parse(input)?;
+            Ok(InjectExpr(expr.body, expr.inputs))
         } else {
-            Ok(Self(parsed_type, Punctuated::new()))
+            Ok(InjectExpr(input.parse()?, vec![]))
         }
     }
 }
@@ -42,7 +40,7 @@ pub(crate) fn handle_injectable(item: TokenStream) -> TokenStream {
                 .filter(|a| a.path().is_ident("inject"))
                 .last()
             {
-                Some(a) => Some(a.parse_args::<InjectHelperExpr>().unwrap()),
+                Some(a) => Some(a.parse_args::<InjectExpr>().unwrap()),
                 None => None,
             }
         })
@@ -129,7 +127,7 @@ pub(crate) fn handle_injectable(item: TokenStream) -> TokenStream {
     let mut prov_types = Vec::<_>::with_capacity(types.len());
     for (t, a) in types.iter().zip(&attributes) {
         if let Some(attr) = a {
-            for attr_type in attr.1.iter().map(|x| &x.bounds) {
+            for attr_type in attr.1.iter().map(|x| &x.ty) {
                 prov_types.push(quote! {#attr_type});
             }
         } else {
