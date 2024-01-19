@@ -1,18 +1,19 @@
-use std::rc::Rc;
-
-use nject::{injectable, provider};
 mod common;
 pub use common::*;
+use nject::{injectable, provider};
+use std::rc::Rc;
 
 #[provider]
 #[provide(&'a StructWithoutDeps, self.lifetime)]
-#[provide(Box<dyn Greeter>, Box::<GreeterOne>::new(self.provide()))]
-#[provide(Rc<i32>, self.shared_rc.clone())]
+#[provide(Box<dyn Greeter>, |greeter: GreeterOne| Box::new(greeter))]
 #[provide(&'prov dyn Greeter, &self.greeter)]
 struct Provider<'a> {
     lifetime: &'a StructWithoutDeps,
+    #[provide(Rc<i32>, |x| x.clone())]
     shared_rc: Rc<i32>,
     greeter: GreeterTwo,
+    #[provide(i32, |x| *x)]
+    i32_ref: &'a i32,
 }
 
 impl<'a> Provider<'a> {
@@ -21,6 +22,7 @@ impl<'a> Provider<'a> {
             lifetime: &StructWithoutDeps,
             shared_rc: Rc::new(123),
             greeter: GreeterTwo,
+            i32_ref: &123,
         }
     }
 }

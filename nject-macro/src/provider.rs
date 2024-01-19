@@ -1,15 +1,56 @@
 use std::collections::HashMap;
 use proc_macro;
 use quote::{quote, format_ident};
-use syn::{parse_macro_input, DeriveInput, GenericParam, Type, Expr, Token, parse::{ParseStream, Parse}, Ident, Field};
+use syn::{parse_macro_input, DeriveInput, GenericParam, Type, Expr, Token, parse::{ParseStream, Parse}, Ident, Field, PatType, ExprClosure, spanned::Spanned, Pat};
+use crate::core::FactoryExpr;
 
-struct TypeExpr(Type, Expr);
-impl Parse for TypeExpr {
+enum ProvideStructInput {
+    TypeExpr(Type, Box<Expr>),
+    TypeExprFact(Type, Vec<PatType>, Box<Expr>)
+}
+impl Parse for ProvideStructInput {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let parsed_type = input.parse()?;
         input.parse::<Token![,]>()?;
-        let parsed_value: Expr = input.parse()?;
-        return Ok(TypeExpr(parsed_type, parsed_value));
+        if input.peek(Token![|]) {
+            let expr = FactoryExpr::parse(input)?;
+            Ok(Self::TypeExprFact(parsed_type, expr.inputs, expr.body))
+        } else {
+            Ok(Self::TypeExpr(parsed_type, input.parse()?))
+        }
+    }
+}
+
+enum ProvideFieldInput {
+    None,
+    Type(Type),
+    TypeExpr(Type, Ident, Box<Expr>),
+}
+impl Parse for ProvideFieldInput {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        if input.is_empty() {
+            return Ok(Self::None);
+        }
+        let parsed_type = input.parse()?;
+        if !input.peek(Token![,]) {
+            return Ok(Self::Type(parsed_type));
+        }
+
+        input.parse::<Token![,]>()?;
+        let expr = input.parse::<ExprClosure>()?;
+        if expr.inputs.len() < 1 {
+            return Err(syn::Error::new(expr.span(), "Missing factory input."));
+        }
+        if expr.inputs.len() > 1 {
+            return Err(syn::Error::new(expr.span(), "More than one input found"));
+        }
+        
+        let input = &expr.inputs[0];
+        if let Pat::Ident(pat_ident) = input {
+            Ok(Self::TypeExpr(parsed_type, pat_ident.ident.to_owned(), expr.body))
+        } else {
+            Err(syn::Error::new(input.span(),"Input must be an identity."))
+        }
     }
 }
 
@@ -70,8 +111,8 @@ pub(crate) fn handle_provider(item: proc_macro::TokenStream) -> proc_macro::Toke
 
     let fields_path_prefix = quote!{};
     let import_outputs = gen_imports_for_import_attr(&ident, &generic_params, &generic_keys, &where_predicates, &fields_path_prefix, &fields, &import_attr_indexes);
-    let provide_outputs = gen_providers_for_provide_attr(&ident, &generic_params, &generic_keys, &where_predicates, &fields_path_prefix, &fields, &provide_attr_indexes);
-    let input_provide_outputs = gen_providers_for_provide_input_attributes(&ident, &generic_params, &generic_keys, &where_predicates, &provide_input_attr);
+    let provide_outputs = gen_providers_for_provide_attr_on_fields(&ident, &generic_params, &generic_keys, &where_predicates, &fields_path_prefix, &fields, &provide_attr_indexes);
+    let input_provide_outputs = gen_providers_for_provide_attr_on_struct(&ident, &generic_params, &generic_keys, &where_predicates, &provide_input_attr);
     let scope_output = gen_scope_output(&input.vis, &ident, &generic_params, &generic_keys, &where_predicates, &fields, &import_attr_indexes, &provide_attr_indexes, &provide_input_attr, &scope_attr);
 
     let output = quote! {
@@ -146,7 +187,7 @@ fn gen_imports_for_import_attr(
     import_outputs.collect()
 }
 
-fn gen_providers_for_provide_attr(
+fn gen_providers_for_provide_attr_on_fields(
     ident: &Ident, 
     generic_params: &[proc_macro2::TokenStream], 
     generic_keys: &[proc_macro2::TokenStream], 
@@ -163,30 +204,59 @@ fn gen_providers_for_provide_attr(
         } else {
             (quote! { & }, quote! { &'prov })
         };
-        let attr_types = attrs.iter().map(|a| match a.meta {
-            syn::Meta::Path(_) => field.ty.to_owned(),
-            _ => a.parse_args::<Type>().unwrap()
-        });
-        let ty_outputs = attr_types.map(|ty| match ty {
-            Type::Reference(r) => {
-                let inner_ty = &r.elem;
-                quote! { #ref_prefix #inner_ty }
-            },
-            _ => quote! { #ref_prefix #ty },
+        let inputs = attrs.iter().map(|a| match a.meta {
+            syn::Meta::Path(_) => ProvideFieldInput::Type(field.ty.to_owned()),
+            _ => a.parse_args::<ProvideFieldInput>().unwrap()
         });
         let index = syn::Index::from(*i);
         let field_key = match &field.ident {
             Some(i) => quote! { #i },
             None => quote! { #index },
         };
-        let outputs = ty_outputs.map(|ty_output| quote! {
+        let outputs = inputs.map(|input| {
+            let ty = match &input {
+                ProvideFieldInput::None =>  match &field.ty {
+                    Type::Reference(r) => {
+                        let inner_ty = &r.elem;
+                        quote! { #ref_prefix #inner_ty }
+                    },
+                    _ => {
+                        let ty = &field.ty;
+                        quote! { #ref_prefix #ty }
+                    },
+                },
+                ProvideFieldInput::Type(t) => match t {
+                    Type::Reference(r) => {
+                        let inner_ty = &r.elem;
+                        quote! { #ref_prefix #inner_ty }
+                    },
+                    _ => quote! { #ref_prefix #t },
+                },
+                ProvideFieldInput::TypeExpr(t, _, _) => quote! { #t },
+            };
+            let body = match &input {
+                ProvideFieldInput::TypeExpr(_, i, e) => {
+                    let ref_prefix = match & field.ty {
+                        Type::Reference(_) => quote!{},
+                        _ => quote!{&},
+                    };
+                    quote!{
+                        let #i = #ref_prefix self.#fields_path_prefix #field_key;
+                        #e
+                    }
+                },
+                _ => quote!{ #key_prefix self.#fields_path_prefix #field_key }
+            };
 
-            impl<'prov#(,#generic_params)*> nject::Provider<'prov, #ty_output> for #ident<#(#generic_keys),*>
-                where #where_predicates
-            {
-                #[inline]
-                fn provide(&'prov self) -> #ty_output {
-                    #key_prefix self.#fields_path_prefix #field_key
+            quote! {
+
+                impl<'prov#(,#generic_params)*> nject::Provider<'prov, #ty> for #ident<#(#generic_keys),*>
+                    where #where_predicates
+                {
+                    #[inline]
+                    fn provide(&'prov self) -> #ty {
+                       #body 
+                    }
                 }
             }
         });
@@ -198,7 +268,7 @@ fn gen_providers_for_provide_attr(
     provide_outputs.collect()
 }
 
-fn gen_providers_for_provide_input_attributes<'a>(
+fn gen_providers_for_provide_attr_on_struct<'a>(
     ident: &Ident, 
     generic_params: &[proc_macro2::TokenStream], 
     generic_keys: &[proc_macro2::TokenStream], 
@@ -207,10 +277,12 @@ fn gen_providers_for_provide_input_attributes<'a>(
 ) -> Vec<proc_macro2::TokenStream> {
     let input_provide_outputs = provide_input_attr
         .iter()
-        .map(|a| a.parse_args::<TypeExpr>().unwrap())
+        .map(|a| a.parse_args::<ProvideStructInput>().unwrap())
         .map(|t| {
-            let ty = t.0;
-            let value= t.1;
+            let (ty, inputs, value) = match t {
+                ProvideStructInput::TypeExpr(t, v) => (t, vec![], v),
+                ProvideStructInput::TypeExprFact(t, i, v) =>(t, i, v),
+            };
             quote!{ 
 
                 impl<'prov, #(#generic_params),*> nject::Provider<'prov, #ty> for #ident<#(#generic_keys),*>
@@ -218,6 +290,7 @@ fn gen_providers_for_provide_input_attributes<'a>(
                 {
                     #[inline]
                     fn provide(&'prov self) -> #ty {
+                        #(let #inputs = self.provide();)*
                         #value
                     }
                 }
@@ -279,8 +352,8 @@ fn gen_scope_output(
         let root_path = syn::Index::from(scope_fields.len());
         let fields_path_prefix = quote!{#root_path.};
         let import_outputs = gen_imports_for_import_attr(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &fields_path_prefix, &fields, &import_attr_indexes);
-        let provide_outputs = gen_providers_for_provide_attr(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &fields_path_prefix, &fields, &provide_attr_indexes);
-        let input_provide_outputs = gen_providers_for_provide_input_attributes(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &provide_input_attr);
+        let provide_outputs = gen_providers_for_provide_attr_on_fields(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &fields_path_prefix, &fields, &provide_attr_indexes);
+        let input_provide_outputs = gen_providers_for_provide_attr_on_struct(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &provide_input_attr);
         let scope_field_provides = scope_fields.iter()
             .enumerate()
             .map(|(i, _)| match arg_scope_fields[i] {
