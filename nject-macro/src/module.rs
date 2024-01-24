@@ -1,14 +1,12 @@
+use crate::core::DeriveInput;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput, GenericParam, Type};
+use syn::{parse_macro_input, Type};
 
 pub(crate) fn handle_module(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
     let ident = &input.ident;
-    let fields = match &input.data {
-        syn::Data::Struct(d) => d.fields.iter().collect::<Vec<_>>(),
-        _ => panic!("Unsupported type. Macro should be used on a struct"),
-    };
+    let fields = input.fields().iter().collect::<Vec<_>>();
     let export_attr_indexes = fields
         .iter()
         .enumerate()
@@ -25,28 +23,9 @@ pub(crate) fn handle_module(_attr: TokenStream, item: TokenStream) -> TokenStrea
             }
         })
         .collect::<Vec<_>>();
-    let generic_params = &input.generics.params.iter().collect::<Vec<&GenericParam>>();
-    let generic_keys = &generic_params
-        .iter()
-        .map(|p| match p {
-            GenericParam::Type(t) => {
-                let identity = &t.ident;
-                quote! { #identity }
-            }
-            GenericParam::Const(c) => {
-                let identity = &c.ident;
-                quote! { #identity }
-            }
-            GenericParam::Lifetime(l) => quote! { #l },
-        })
-        .collect::<Vec<_>>();
-    let lifetime_keys = &generic_params
-        .iter()
-        .filter_map(|p| match p {
-            GenericParam::Lifetime(l) => Some(quote! { #l }),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
+    let generic_params = input.generic_params();
+    let generic_keys = input.generic_keys();
+    let lifetime_keys = input.lifetime_keys();
     let prov_lifetimes = match lifetime_keys.len() > 0 {
         true => quote! { 'prov: #(#lifetime_keys)+*, },
         false => quote! {},

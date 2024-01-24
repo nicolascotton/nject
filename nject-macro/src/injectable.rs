@@ -1,9 +1,9 @@
-use crate::core::FactoryExpr;
+use crate::core::{DeriveInput, FactoryExpr};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input, DeriveInput, Expr, GenericParam, Ident, PatType, Token, Type,
+    parse_macro_input, Expr, PatType, Token,
 };
 
 struct InjectExpr(Box<Expr>, Vec<PatType>);
@@ -21,16 +21,9 @@ impl Parse for InjectExpr {
 pub(crate) fn handle_injectable(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
     let ident = &input.ident;
-    let fields = match &input.data {
-        syn::Data::Struct(d) => &d.fields,
-        _ => panic!("Unsupported type. Macro should be used on a struct"),
-    };
-    let types = fields.iter().map(|f| &f.ty).collect::<Vec<&Type>>();
-    let keys = fields
-        .iter()
-        .map(|f| f.ident.as_ref())
-        .filter_map(|i| i)
-        .collect::<Vec<&Ident>>();
+    let fields = input.fields();
+    let types = input.field_types();
+    let keys = input.field_idents();
     let attributes = fields
         .iter()
         .map(|f| {
@@ -45,28 +38,9 @@ pub(crate) fn handle_injectable(item: TokenStream) -> TokenStream {
             }
         })
         .collect::<Vec<_>>();
-    let generic_params = &input.generics.params.iter().collect::<Vec<&GenericParam>>();
-    let generic_keys = &generic_params
-        .iter()
-        .map(|p| match p {
-            GenericParam::Type(t) => {
-                let identity = &t.ident;
-                quote! { #identity }
-            }
-            GenericParam::Const(c) => {
-                let identity = &c.ident;
-                quote! { #identity }
-            }
-            GenericParam::Lifetime(l) => quote! { #l },
-        })
-        .collect::<Vec<_>>();
-    let lifetime_keys = &generic_params
-        .iter()
-        .filter_map(|p| match p {
-            GenericParam::Lifetime(l) => Some(quote! { #l }),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
+    let generic_params = input.generic_params();
+    let generic_keys = input.generic_keys();
+    let lifetime_keys = input.lifetime_keys();
     let prov_lifetimes = match lifetime_keys.len() > 0 {
         true => quote! { 'prov: #(#lifetime_keys)+*, },
         false => quote! {},
