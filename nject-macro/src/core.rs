@@ -93,7 +93,10 @@ impl Parse for FactoryExpr {
             if let Pat::Type(pat_type) = input {
                 inputs.push(pat_type);
             } else {
-                return Err(syn::Error::new(span, format!("Invalid input: {input:?}")));
+                return Err(syn::Error::new(
+                    span,
+                    format!("Invalid input: {}", input.to_token_stream()),
+                ));
             }
         }
         Ok(FactoryExpr {
