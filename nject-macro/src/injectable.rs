@@ -1,21 +1,19 @@
+use crate::core::{DeriveInput, FactoryExpr};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input,
-    punctuated::Punctuated,
-    DeriveInput, Expr, GenericParam, Ident, Token, Type, TypeParam,
+    parse_macro_input, Expr, PatType, Token,
 };
 
-struct InjectHelperExpr(Expr, Punctuated<TypeParam, Token![,]>);
-impl Parse for InjectHelperExpr {
+struct InjectExpr(Box<Expr>, Vec<PatType>);
+impl Parse for InjectExpr {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let parsed_type = input.parse()?;
-        if input.parse::<Token![,]>().is_ok() {
-            let parsed_value = Punctuated::parse_separated_nonempty(&input)?;
-            Ok(Self(parsed_type, parsed_value))
+        if input.peek(Token![|]) {
+            let expr = FactoryExpr::parse(input)?;
+            Ok(InjectExpr(expr.body, expr.inputs))
         } else {
-            Ok(Self(parsed_type, Punctuated::new()))
+            Ok(InjectExpr(input.parse()?, vec![]))
         }
     }
 }
@@ -23,16 +21,9 @@ impl Parse for InjectHelperExpr {
 pub(crate) fn handle_injectable(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
     let ident = &input.ident;
-    let fields = match &input.data {
-        syn::Data::Struct(d) => &d.fields,
-        _ => panic!("Unsupported type. Macro should be used on a struct"),
-    };
-    let types = fields.iter().map(|f| &f.ty).collect::<Vec<&Type>>();
-    let keys = fields
-        .iter()
-        .map(|f| f.ident.as_ref())
-        .filter_map(|i| i)
-        .collect::<Vec<&Ident>>();
+    let fields = input.fields();
+    let types = input.field_types();
+    let keys = input.field_idents();
     let attributes = fields
         .iter()
         .map(|f| {
@@ -42,33 +33,14 @@ pub(crate) fn handle_injectable(item: TokenStream) -> TokenStream {
                 .filter(|a| a.path().is_ident("inject"))
                 .last()
             {
-                Some(a) => Some(a.parse_args::<InjectHelperExpr>().unwrap()),
+                Some(a) => Some(a.parse_args::<InjectExpr>().unwrap()),
                 None => None,
             }
         })
         .collect::<Vec<_>>();
-    let generic_params = &input.generics.params.iter().collect::<Vec<&GenericParam>>();
-    let generic_keys = &generic_params
-        .iter()
-        .map(|p| match p {
-            GenericParam::Type(t) => {
-                let identity = &t.ident;
-                quote! { #identity }
-            }
-            GenericParam::Const(c) => {
-                let identity = &c.ident;
-                quote! { #identity }
-            }
-            GenericParam::Lifetime(l) => quote! { #l },
-        })
-        .collect::<Vec<_>>();
-    let lifetime_keys = &generic_params
-        .iter()
-        .filter_map(|p| match p {
-            GenericParam::Lifetime(l) => Some(quote! { #l }),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
+    let generic_params = input.generic_params();
+    let generic_keys = input.generic_keys();
+    let lifetime_keys = input.lifetime_keys();
     let prov_lifetimes = match lifetime_keys.len() > 0 {
         true => quote! { 'prov: #(#lifetime_keys)+*, },
         false => quote! {},
@@ -129,7 +101,7 @@ pub(crate) fn handle_injectable(item: TokenStream) -> TokenStream {
     let mut prov_types = Vec::<_>::with_capacity(types.len());
     for (t, a) in types.iter().zip(&attributes) {
         if let Some(attr) = a {
-            for attr_type in attr.1.iter().map(|x| &x.bounds) {
+            for attr_type in attr.1.iter().map(|x| &x.ty) {
                 prov_types.push(quote! {#attr_type});
             }
         } else {

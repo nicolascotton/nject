@@ -29,7 +29,7 @@ Simple zero cost dependency injection library made for rust
 Add the following to your `Cargo.toml`:
 ```toml
 [dependencies]
-nject = "0.3"
+nject = "0.4"
 ```
 ## Why `nject`?
 - **Zero cost**: Using this library is equivalent to manually injecting your dependencies as shown in the [benchmarks](https://github.com/nicolascotton/nject/tree/main/examples/benchmark).
@@ -73,13 +73,13 @@ struct Facade<'a> {
 }
 
 #[provider]
-struct Provider<'a> {
+struct Provider {
     #[provide]
-    shared: &'a DepOne,
+    shared: DepOne,
 }
 
 fn main() {
-    let provider = Provider { shared: &DepOne };
+    let provider = Provider { shared: DepOne };
     let _facade: Facade = provider.provide();
 }
 
@@ -87,6 +87,7 @@ fn main() {
 ### Works with dyn traits
 ```rust
 use nject::{injectable, provider};
+use std::rc::Rc;
 
 trait Greeter {
     fn greet(&self);
@@ -105,17 +106,23 @@ impl Greeter for GreeterOne {
 struct Facade<'a> {
     boxed_dep: Box<dyn Greeter>,
     ref_dep: &'a dyn Greeter,
+    rc_dep: Rc<dyn Greeter>,
 }
 
 #[provider]
-#[provide(Box<dyn Greeter>, Box::<GreeterOne>::new(self.provide()))]
+#[provide(Box<dyn Greeter>, |greeter: GreeterOne| Box::new(greeter))]
 struct Provider {
     #[provide(dyn Greeter)]
     greeter: GreeterOne,
+    #[provide(Rc<dyn Greeter>, |x| x.clone())]
+    rc_greeter: Rc<GreeterOne>,
 }
 
 fn main() {
-    let provider = Provider { greeter: GreeterOne };
+    let provider = Provider { 
+        greeter: GreeterOne,
+        rc_greeter: Rc::new(GreeterOne),
+    };
     let _facade: Facade = provider.provide();
 }
 
@@ -192,10 +199,10 @@ struct NonInjectable {
     non_injectable_value: i32,
 }
 
-#[inject(Self { 
+#[inject(|injectable_dep: InjectableFromInjectAttr| Self { 
     non_injectable_value: injectable_dep.non_injectable_value + 10, 
     injectable_dep 
-}, injectable_dep: InjectableFromInjectAttr)]
+})]
 struct PartiallyInjectable {
     non_injectable_value: i32,
     injectable_dep: InjectableFromInjectAttr
@@ -209,10 +216,10 @@ struct Facade {
     dep_from_inject_attr: NonInjectable,
     #[inject(InjectableFromInjectAttr { non_injectable_value: 789 })]
     dep_from_inject_attr_override: InjectableFromInjectAttr,
-    #[inject(PartiallyInjectable {
+    #[inject(|injectable_dep: InjectableFromInjectAttr| PartiallyInjectable {
         non_injectable_value: 111, 
         injectable_dep 
-    }, injectable_dep: InjectableFromInjectAttr)]
+    })]
     dep_from_partial_inject_attr_override: PartiallyInjectable,
 }
 
