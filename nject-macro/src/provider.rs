@@ -1,12 +1,15 @@
 use crate::core::{DeriveInput, FactoryExpr};
 use proc_macro;
+use proc_macro2::Span;
 use quote::{format_ident, quote};
 use std::collections::HashMap;
 use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
+    punctuated::Punctuated,
     spanned::Spanned,
-    Expr, ExprClosure, Field, Ident, Pat, PatType, Token, Type,
+    Expr, ExprClosure, Field, GenericParam, Ident, Lifetime, LifetimeParam, Pat, PatType, Token,
+    Type,
 };
 
 enum ProvideStructInput {
@@ -67,12 +70,8 @@ pub(crate) fn handle_provider(item: proc_macro::TokenStream) -> proc_macro::Toke
     let input = parse_macro_input!(item as DeriveInput);
     let ident = &input.ident;
     let fields = input.fields().iter().collect::<Vec<_>>();
-    let generic_params = input.generic_params();
     let generic_keys = input.generic_keys();
-    let generic_params = generic_params
-        .iter()
-        .map(|p| quote! {#p})
-        .collect::<Vec<_>>();
+    let generic_params = input.generic_params();
     let where_predicates = match &input.generics.where_clause {
         Some(w) => {
             let predicates = &w.predicates;
@@ -195,7 +194,7 @@ pub(crate) fn handle_provider(item: proc_macro::TokenStream) -> proc_macro::Toke
 
 fn gen_imports_for_import_attr(
     ident: &Ident,
-    generic_params: &[proc_macro2::TokenStream],
+    generic_params: &[&GenericParam],
     generic_keys: &[proc_macro2::TokenStream],
     where_predicates: &proc_macro2::TokenStream,
     fields_path_prefix: &proc_macro2::TokenStream,
@@ -217,6 +216,25 @@ fn gen_imports_for_import_attr(
             Some(i) => quote! { #i },
             None => quote! { #index },
         };
+        let import_key = super::module::models::ModuleKey::from(ty);
+        let import = super::module::repository::get(&import_key);
+        let exported_types = match import {
+            Some(i) => i.exported_types(),
+            None => vec![]
+        };
+        let imported_type_output = exported_types.iter().map(|ty| {
+            quote!{
+
+                impl<'prov#(,#generic_params)*> nject::Provider<'prov, #ty> for #ident<#(#generic_keys),*>
+                    where #where_predicates
+                {
+                    #[inline]
+                    fn provide(&'prov self) -> #ty {
+                        nject::RefInjectable::inject(&self.#fields_path_prefix #field_key, self)
+                    }
+                }
+            }
+        });
 
         quote! {
 
@@ -228,6 +246,8 @@ fn gen_imports_for_import_attr(
                     &self.#fields_path_prefix #field_key
                 }
             }
+
+            #(#imported_type_output)*
         }
     });
     import_outputs.collect()
@@ -235,7 +255,7 @@ fn gen_imports_for_import_attr(
 
 fn gen_providers_for_provide_attr_on_fields(
     ident: &Ident,
-    generic_params: &[proc_macro2::TokenStream],
+    generic_params: &[&GenericParam],
     generic_keys: &[proc_macro2::TokenStream],
     where_predicates: &proc_macro2::TokenStream,
     fields_path_prefix: &proc_macro2::TokenStream,
@@ -314,9 +334,9 @@ fn gen_providers_for_provide_attr_on_fields(
     provide_outputs.collect()
 }
 
-fn gen_providers_for_provide_attr_on_struct<'a>(
+pub(crate) fn gen_providers_for_provide_attr_on_struct<'a>(
     ident: &Ident,
-    generic_params: &[proc_macro2::TokenStream],
+    generic_params: &[&GenericParam],
     generic_keys: &[proc_macro2::TokenStream],
     where_predicates: &proc_macro2::TokenStream,
     provide_input_attr: &[&syn::Attribute],
@@ -348,7 +368,7 @@ fn gen_providers_for_provide_attr_on_struct<'a>(
 fn gen_scope_output(
     visibility: &syn::Visibility,
     ident: &Ident,
-    generic_params: &[proc_macro2::TokenStream],
+    generic_params: &[&GenericParam],
     generic_keys: &[proc_macro2::TokenStream],
     where_predicates: &proc_macro2::TokenStream,
     fields: &[&syn::Field],
@@ -360,7 +380,13 @@ fn gen_scope_output(
     if scope_input_attr.is_empty() {
         return proc_macro2::TokenStream::new();
     }
-    let mut scope_generic_params = vec![quote! {'scope}];
+    let scope_lifetime = &GenericParam::Lifetime(LifetimeParam {
+        lifetime: Lifetime::new("'scope", Span::call_site()),
+        attrs: vec![],
+        colon_token: None,
+        bounds: Punctuated::default(),
+    });
+    let mut scope_generic_params = vec![scope_lifetime];
     scope_generic_params.extend_from_slice(generic_params);
     let mut scope_generic_keys = vec![quote! {'scope}];
     scope_generic_keys.extend_from_slice(generic_keys);

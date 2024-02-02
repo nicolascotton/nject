@@ -1,6 +1,6 @@
-use nject::{injectable, provider};
-
 use crate::sub::Greeter;
+use nject::{injectable, module, provider};
+use std::rc::Rc;
 
 #[provider]
 struct InitProvider;
@@ -73,6 +73,77 @@ fn provide_with_module_with_dyn_dep_should_export_its_members_correctly() {
     let dep = provider.provide::<&dyn sub::Greeter>();
     // Then
     assert_eq!(dep.greet(), sub::GreeterOne.greet())
+}
+
+#[test]
+fn provide_with_module_with_external_type_export_should_provide_its_members_correctly() {
+    // Given
+    #[injectable]
+    #[module(Module)]
+    #[export(i32, 123)]
+    struct Module;
+    #[injectable]
+    #[provider]
+    struct Provider(#[import] Module);
+    let provider = InitProvider.provide::<Provider>();
+    // When
+    let dep = provider.provide::<i32>();
+    // Then
+    assert_eq!(dep, 123)
+}
+
+#[test]
+fn provide_with_module_with_external_type_export_with_simple_factory_should_provide_its_members_correctly(
+) {
+    // Given
+    #[injectable]
+    #[module(Module)]
+    #[export(std::rc::Rc<i32>, self.0.clone())]
+    struct Module(#[inject(Rc::new(123))] Rc<i32>);
+    #[injectable]
+    #[provider]
+    struct Provider(#[import] Module);
+    let provider = InitProvider.provide::<Provider>();
+    // When
+    let dep = provider.provide::<Rc<i32>>();
+    // Then
+    assert_eq!(*dep, 123)
+}
+
+#[test]
+fn provide_with_module_with_external_type_export_with_complex_factory_should_provide_its_members_correctly(
+) {
+    // Given
+    #[injectable]
+    #[module(Module)]
+    #[export(Box<i32>, |x: i32| Box::new(x))]
+    struct Module;
+    #[injectable]
+    #[provider]
+    #[provide(i32, 123)]
+    struct Provider(#[import] Module);
+    let provider = InitProvider.provide::<Provider>();
+    // When
+    let dep = provider.provide::<Box<i32>>();
+    // Then
+    assert_eq!(*dep, 123)
+}
+
+#[test]
+fn provide_with_module_with_ref_external_type_export_should_provide_its_members_correctly() {
+    // Given
+    #[injectable]
+    #[module]
+    #[export(&'prov i32, &self.0)]
+    struct Module(#[inject(123)] i32);
+    #[injectable]
+    #[provider]
+    struct Provider(#[import] Module);
+    let provider = InitProvider.provide::<Provider>();
+    // When
+    let dep = provider.provide::<&i32>();
+    // Then
+    assert_eq!(dep, &123)
 }
 
 mod sub {
