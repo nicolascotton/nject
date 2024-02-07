@@ -135,12 +135,23 @@ pub fn retry<T, E>(times: usize, action: impl Fn() -> Result<T, E>) -> Result<T,
     }
 }
 
+/// Substitute an identity in path recursively.
 pub fn substitute_in_path(path: &mut Path, from: &str, to: &str) {
     for segment in path.segments.iter_mut() {
         substitute_in_path_segment(segment, from, to)
     }
 }
 
+/// Substitute an identity in generic arg recursively.
+pub fn substitute_in_type(ty: &mut Type, from: &str, to: &str) {
+    match ty {
+        Type::Path(ref mut p) => substitute_in_path(&mut p.path, from, to),
+        Type::Reference(ref mut r) => substitute_in_type(&mut r.elem, from, to),
+        _ => panic!("Unsupported type. Must be a Path or a Reference type."),
+    };
+}
+
+/// Substitute an identity in path segment recursively.
 fn substitute_in_path_segment(segment: &mut PathSegment, from: &str, to: &str) {
     if segment.ident.to_string().eq(from) {
         segment.ident = syn::Ident::new(to, segment.ident.span());
@@ -161,6 +172,7 @@ fn substitute_in_path_segment(segment: &mut PathSegment, from: &str, to: &str) {
     };
 }
 
+/// Substitute an identity in generic args recursively.
 fn substitute_in_angle_bracketed_generic_arguments(
     args: &mut AngleBracketedGenericArguments,
     from: &str,
@@ -171,6 +183,7 @@ fn substitute_in_angle_bracketed_generic_arguments(
     }
 }
 
+/// Substitute an identity in generic arg recursively.
 fn substitute_in_generic_argument(arg: &mut GenericArgument, from: &str, to: &str) {
     match arg {
         syn::GenericArgument::Type(ref mut ty) => substitute_in_type(ty, from, to),
@@ -199,12 +212,4 @@ fn substitute_in_generic_argument(arg: &mut GenericArgument, from: &str, to: &st
         }
         _ => (),
     }
-}
-
-pub fn substitute_in_type(ty: &mut Type, from: &str, to: &str) {
-    match ty {
-        Type::Path(ref mut p) => substitute_in_path(&mut p.path, from, to),
-        Type::Reference(ref mut r) => substitute_in_type(&mut r.elem, from, to),
-        _ => panic!("Unsupported type. Must be a Path or a Reference type."),
-    };
 }

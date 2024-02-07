@@ -10,6 +10,7 @@ use std::{
     sync::RwLock,
 };
 
+/// Initialize the cache with the file system.
 fn init_cache() -> HashMap<ModuleKey, Module> {
     let mut cache = HashMap::new();
     let cache_root_dir = cache_path();
@@ -63,16 +64,19 @@ thread_local! {
     static CACHE: RwLock<HashMap<ModuleKey, Module>> = RwLock::new(init_cache());
 }
 
+/// Access the cache with the update callback.
 fn update_cache<R>(update: impl FnOnce(&mut HashMap<ModuleKey, Module>) -> R) -> R {
     CACHE.with(move |cache| {
-        let mut cache = cache.write().unwrap();
+        let mut cache = cache.write().expect("Unable to gain cache access.");
         update(&mut cache)
     })
 }
 
+/// Get the module related to the given key.
+/// If the module is not found, None is returned.
 pub(crate) fn get(key: &ModuleKey) -> Option<Module> {
     CACHE.with(move |cache| {
-        let cache = cache.read().unwrap();
+        let cache = cache.read().expect("Unable to gain cache access.");
         match cache.get(key) {
             Some(v) => Some(v.clone()),
             None => None,
@@ -80,7 +84,8 @@ pub(crate) fn get(key: &ModuleKey) -> Option<Module> {
     })
 }
 
-pub(crate) fn add(key: ModuleKey, module: Module) {
+/// Ensure a module for the given key.
+pub(crate) fn ensure(key: ModuleKey, module: Module) {
     let module_dir = cache_path();
     let encoded_key = encode(&key.0);
     let module_path = module_dir.join(&encoded_key);
@@ -110,7 +115,14 @@ pub(crate) fn add(key: ModuleKey, module: Module) {
         return;
     }
     if no_export_types {
-        retry(10, || std::fs::remove_file(&module_path)).expect("Unable to remove module file");
+        retry(10, || match std::fs::remove_file(&module_path) {
+            Ok(x) => Ok(x),
+            Err(error) => match error.kind() {
+                std::io::ErrorKind::NotFound => Ok(()),
+                _ => Err(error),
+            },
+        })
+        .expect("Unable to remove module file");
         return;
     }
     retry(10, || std::fs::create_dir_all(&module_dir)).expect("Unable to create module directory");

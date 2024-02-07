@@ -20,7 +20,7 @@ impl Parse for InjectExpr {
 
 pub(crate) fn handle_inject(item: TokenStream, attr: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
-    let attributes: InjectExpr = syn::parse(attr).unwrap();
+    let attributes: InjectExpr = syn::parse(attr).expect("Unable to parse inject attributes.");
     let ident = &input.ident;
     let generic_params = input.generic_params();
     let generic_keys = input.generic_keys();

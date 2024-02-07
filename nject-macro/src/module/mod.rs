@@ -71,7 +71,7 @@ pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> TokenStream
         struct_type_exports.as_slice(),
     ));
     let module_key = module.key();
-    repository::add(module_key, module);
+    repository::ensure(module_key, module);
     let generic_keys = input.generic_keys();
     let lifetime_keys = input.lifetime_keys();
     let prov_lifetimes = match lifetime_keys.len() > 0 {
@@ -123,7 +123,7 @@ pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> TokenStream
         };
         let attr_types = attrs.iter().map(|a| match a.meta {
             syn::Meta::Path(_) => field.ty.to_owned(),
-            _ => a.parse_args::<Type>().unwrap()
+            _ => a.parse_args::<Type>().expect("Unable to parse argument type.")
         });
         let ty_outputs = attr_types.map(|ty| match ty {
             Type::Reference(r) => {
