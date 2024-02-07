@@ -1,5 +1,9 @@
 use super::models::{Module, ModuleKey};
-use crate::core::{cache_path, decode, encode, retry};
+use crate::core::{
+    cache_path,
+    encoding::base32::{decode, encode},
+    retry,
+};
 use std::{
     collections::HashMap,
     io::{BufRead, Write},
@@ -26,7 +30,7 @@ fn init_cache() -> HashMap<ModuleKey, Module> {
                 .to_str()
                 .expect("Unable to get module key from file.")
                 .to_owned();
-            let key = decode(&key);
+            let key = decode(&key).expect("Invalid module file name.");
             if let Ok(file) = std::fs::File::open(file.path()) {
                 let lines = std::io::BufReader::new(file).lines();
                 let lines = lines

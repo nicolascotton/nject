@@ -1,7 +1,8 @@
+pub mod encoding;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use std::ops::Deref;
-use std::{io::Write, path::PathBuf};
+use std::path::PathBuf;
 use syn::{
     parse::{Parse, ParseStream},
     spanned::Spanned,
@@ -121,6 +122,7 @@ pub fn cache_path() -> PathBuf {
     std::path::Path::new(root_path).join(".nject")
 }
 
+/// Retry the `action` nth `times` with 100ms between each time.
 pub fn retry<T, E>(times: usize, action: impl Fn() -> Result<T, E>) -> Result<T, E> {
     let result = action();
     if result.is_ok() {
@@ -131,25 +133,6 @@ pub fn retry<T, E>(times: usize, action: impl Fn() -> Result<T, E>) -> Result<T,
         std::thread::sleep(std::time::Duration::from_millis(100));
         retry(times - 1, action)
     }
-}
-
-pub fn encode(data: &str) -> String {
-    let mut encoded_data = Vec::with_capacity(data.len() * 2);
-    for d in data.as_bytes() {
-        write!(&mut encoded_data, "{:X}", d).expect("Unable to encode data");
-    }
-    String::from_utf8(encoded_data).expect("Unable to encode data.")
-}
-
-pub fn decode(data: &str) -> String {
-    let decoded_data = (0..data.len())
-        .step_by(2)
-        .map(|i| {
-            u8::from_str_radix(data.get(i..i + 2).expect("Unable to decode data."), 16)
-                .expect("Unable to decode data.")
-        })
-        .collect::<Vec<u8>>();
-    String::from_utf8(decoded_data).expect("Unable to decode data.")
 }
 
 pub fn substitute_in_path(path: &mut Path, from: &str, to: &str) {
