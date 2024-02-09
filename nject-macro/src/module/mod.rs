@@ -70,8 +70,7 @@ pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> TokenStream
         module_pub_path.as_ref(),
         struct_type_exports.as_slice(),
     ));
-    let module_key = module.key();
-    repository::ensure(module_key, module);
+    repository::ensure(module);
     let generic_keys = input.generic_keys();
     let lifetime_keys = input.lifetime_keys();
     let prov_lifetimes = match lifetime_keys.len() > 0 {

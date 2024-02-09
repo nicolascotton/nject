@@ -1,17 +1,18 @@
 /// Encodes a string in base32. **Useful for filename**.
-pub fn encode(input: &str) -> String {
+#[cfg(test)]
+pub fn encode(input: &[u8]) -> Vec<u8> {
     // The base32 alphabet
     const ALPHABET: &[u8; 32] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
     // The number of bits per character
     const BITS_PER_CHAR: usize = 5;
     // The output string
-    let mut output = String::with_capacity(input.len() * 2);
+    let mut output = Vec::with_capacity(input.len() * 2);
     // The buffer to store the bits
     let mut buffer: u64 = 0;
     // The number of bits in the buffer
     let mut bits_in_buffer: usize = 0;
     // Iterate over the input bytes
-    for byte in input.bytes() {
+    for &byte in input {
         // Add the byte to the buffer
         buffer = (buffer << 8) | (byte as u64);
         // Increase the number of bits in the buffer
@@ -21,7 +22,7 @@ pub fn encode(input: &str) -> String {
             // Extract the top 5 bits from the buffer
             let index = (buffer >> (bits_in_buffer - BITS_PER_CHAR)) as usize;
             // Append the corresponding character to the output
-            output.push(ALPHABET[index] as char);
+            output.push(ALPHABET[index]);
             // Remove the top 5 bits from the buffer
             buffer &= (1 << (bits_in_buffer - BITS_PER_CHAR)) - 1;
             // Decrease the number of bits in the buffer
@@ -35,18 +36,19 @@ pub fn encode(input: &str) -> String {
         // Extract the top 5 bits from the buffer
         let index = buffer as usize;
         // Append the corresponding character to the output
-        output.push(ALPHABET[index] as char);
+        output.push(ALPHABET[index]);
     }
     // Return the output string
     output
 }
 
 /// Decodes a string in base32. **Useful for filename**.
-pub fn decode(input: &str) -> Result<String, String> {
+#[cfg(test)]
+pub fn decode(input: &[u8]) -> Result<Vec<u8>, String> {
     // Create a vector to store the decoded bytes
     let mut output = Vec::with_capacity(input.len());
     // Iterate over the input in chunks of 8 characters
-    for chunk in input.as_bytes().chunks(8) {
+    for chunk in input.chunks(8) {
         // Create a buffer to store the 5-bit values
         let mut buffer = [0u8; 8];
         // Convert each character to a 5-bit value and store it in the buffer
@@ -72,8 +74,7 @@ pub fn decode(input: &str) -> Result<String, String> {
         output.push(b4);
     }
     output.truncate(input.len() * 5 / 8);
-    // Convert the output vector to a string and return it
-    String::from_utf8(output).map_err(|e| e.to_string())
+    Ok(output)
 }
 
 #[cfg(test)]
@@ -85,8 +86,9 @@ mod test {
         // Given
         let data = "lib1 :: Module";
         // When
-        let encoded = encode(data);
+        let encoded = encode(data.as_bytes());
         // Then
+        let encoded = String::from_utf8(encoded).unwrap();
         assert_eq!(&encoded, "NRUWEMJAHI5CATLPMR2WYZI")
     }
 
@@ -95,9 +97,10 @@ mod test {
         // Given
         let encoded = "NRUWEMJAHI5CATLPMR2WYZI";
         // When
-        let data = decode(encoded).unwrap();
+        let decoded = decode(encoded.as_bytes()).unwrap();
         // Then
-        assert_eq!(&data, "lib1 :: Module")
+        let decoded = String::from_utf8(decoded).unwrap();
+        assert_eq!(&decoded, "lib1 :: Module")
     }
 
     #[test]
@@ -115,9 +118,10 @@ mod test {
             // Given
             let data = case;
             // When
-            let encoded = encode(data);
+            let encoded = encode(data.as_bytes());
             // Then
             let decoded = decode(&encoded).unwrap();
+            let decoded = String::from_utf8(decoded).unwrap();
             assert_eq!(&decoded, data)
         }
     }

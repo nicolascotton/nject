@@ -1,9 +1,5 @@
 use super::models::{Module, ModuleKey};
-use crate::core::{
-    cache_path,
-    encoding::base32::{decode, encode},
-    retry,
-};
+use crate::core::{cache_path, encoding::base64::encode, retry};
 use std::{
     collections::HashMap,
     io::{BufRead, Write},
@@ -26,12 +22,6 @@ fn init_cache() -> HashMap<ModuleKey, Module> {
             Err(_) => None,
         });
         for file in files {
-            let key = file
-                .file_name()
-                .to_str()
-                .expect("Unable to get module key from file.")
-                .to_owned();
-            let key = decode(&key).expect("Invalid module file name.");
             if let Ok(file) = std::fs::File::open(file.path()) {
                 let lines = std::io::BufReader::new(file).lines();
                 let lines = lines
@@ -43,17 +33,15 @@ fn init_cache() -> HashMap<ModuleKey, Module> {
                 let crate_name = lines.get(0).expect("Missing crate name field").to_owned();
                 let path = lines.get(1).expect("Missing path field").to_owned();
                 let exported_types = lines.iter().skip(2).map(|x| x.to_owned()).collect();
-                cache.insert(
-                    ModuleKey(key),
-                    Module {
-                        crate_name: match crate_name.is_empty() {
-                            true => None,
-                            false => Some(crate_name),
-                        },
-                        path,
-                        exported_types,
+                let module = Module {
+                    crate_name: match crate_name.is_empty() {
+                        true => None,
+                        false => Some(crate_name),
                     },
-                );
+                    path,
+                    exported_types,
+                };
+                cache.insert(module.key(), module);
             }
         }
     }
@@ -85,10 +73,26 @@ pub(crate) fn get(key: &ModuleKey) -> Option<Module> {
 }
 
 /// Ensure a module for the given key.
-pub(crate) fn ensure(key: ModuleKey, module: Module) {
+pub(crate) fn ensure(module: Module) {
     let module_dir = cache_path();
-    let encoded_key = encode(&key.0);
-    let module_path = module_dir.join(&encoded_key);
+    let key = module.key();
+    // OS have limits on file name size. If the name is too long, we use a portion of the original key with a hash.
+    let module_file_name = match key.0.len() < 50 {
+        true => to_file_name(key.0.as_bytes()),
+        false => {
+            let key_prefix = key.0[..34].as_bytes();
+            let hash = crate::core::hash::fnv(key.0.as_bytes());
+            let mut combined = [0u8; 50];
+            for i in 0..34 {
+                combined[i] = key_prefix[i] as u8;
+            }
+            for i in 0..16 {
+                combined[i + 34] = hash[i] as u8;
+            }
+            to_file_name(&combined)
+        }
+    };
+    let module_path = module_dir.join(&module_file_name);
     let no_export_types = module.exported_types.is_empty();
     let mut exported_types_output = Vec::<u8>::new();
     if let Some(crate_name) = &module.crate_name {
@@ -131,4 +135,16 @@ pub(crate) fn ensure(key: ModuleKey, module: Module) {
         file.write_all(&exported_types_output)
     })
     .expect("Unable to create module file");
+}
+
+fn to_file_name(data: &[u8]) -> String {
+    let encoded_data = encode(data);
+    let mut file_name = String::with_capacity(encoded_data.len());
+    for c in encoded_data {
+        match c {
+            b'/' => file_name.push('_'),
+            x => file_name.push(x as char),
+        }
+    }
+    file_name
 }
