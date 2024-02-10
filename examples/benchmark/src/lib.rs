@@ -1,5 +1,6 @@
 #![cfg_attr(test, feature(test))]
 #![cfg_attr(test, feature(type_alias_impl_trait))]
+#![allow(dead_code)]
 
 #[cfg(test)]
 extern crate test;

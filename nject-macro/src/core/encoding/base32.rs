@@ -1,31 +1,17 @@
 /// Encodes a string in base32. **Useful for filename**.
-#[cfg(test)]
 pub fn encode(input: &[u8]) -> Vec<u8> {
-    // The base32 alphabet
     const ALPHABET: &[u8; 32] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-    // The number of bits per character
     const BITS_PER_CHAR: usize = 5;
-    // The output string
-    let mut output = Vec::with_capacity(input.len() * 2);
-    // The buffer to store the bits
+    let mut output = Vec::with_capacity(input.len() * 8 / 5 + 2);
     let mut buffer: u64 = 0;
-    // The number of bits in the buffer
     let mut bits_in_buffer: usize = 0;
-    // Iterate over the input bytes
     for &byte in input {
-        // Add the byte to the buffer
         buffer = (buffer << 8) | (byte as u64);
-        // Increase the number of bits in the buffer
         bits_in_buffer += 8;
-        // While there are enough bits in the buffer to encode a character
         while bits_in_buffer >= BITS_PER_CHAR {
-            // Extract the top 5 bits from the buffer
             let index = (buffer >> (bits_in_buffer - BITS_PER_CHAR)) as usize;
-            // Append the corresponding character to the output
             output.push(ALPHABET[index]);
-            // Remove the top 5 bits from the buffer
             buffer &= (1 << (bits_in_buffer - BITS_PER_CHAR)) - 1;
-            // Decrease the number of bits in the buffer
             bits_in_buffer -= BITS_PER_CHAR;
         }
     }
@@ -33,23 +19,17 @@ pub fn encode(input: &[u8]) -> Vec<u8> {
     if bits_in_buffer > 0 {
         // Pad the buffer with zeros to the right
         buffer <<= BITS_PER_CHAR - bits_in_buffer;
-        // Extract the top 5 bits from the buffer
         let index = buffer as usize;
-        // Append the corresponding character to the output
         output.push(ALPHABET[index]);
     }
-    // Return the output string
     output
 }
 
 /// Decodes a string in base32. **Useful for filename**.
 #[cfg(test)]
 pub fn decode(input: &[u8]) -> Result<Vec<u8>, String> {
-    // Create a vector to store the decoded bytes
     let mut output = Vec::with_capacity(input.len());
-    // Iterate over the input in chunks of 8 characters
     for chunk in input.chunks(8) {
-        // Create a buffer to store the 5-bit values
         let mut buffer = [0u8; 8];
         // Convert each character to a 5-bit value and store it in the buffer
         for (i, &c) in chunk.iter().enumerate() {
@@ -120,6 +100,13 @@ mod test {
             // When
             let encoded = encode(data.as_bytes());
             // Then
+            let expected_encoded_len = data.len() * 8 / 5 + 2;
+            assert!(
+                encoded.len() <= expected_encoded_len,
+                "{} <= {}",
+                encoded.len(),
+                expected_encoded_len
+            );
             let decoded = decode(&encoded).unwrap();
             let decoded = String::from_utf8(decoded).unwrap();
             assert_eq!(&decoded, data)

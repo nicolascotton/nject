@@ -21,12 +21,12 @@ fn provide_with_type_providable_by_root_import_should_be_providable_by_scope() {
     #[injectable]
     #[module]
     #[export(i32, 456)]
-    struct Module;
+    struct TestModule;
 
     #[injectable]
     #[provider]
     #[scope(i32)]
-    struct Root(#[import] Module);
+    struct Root(#[import] TestModule);
 
     #[injectable]
     #[derive(PartialEq, Debug)]
@@ -181,6 +181,7 @@ fn provide_with_generic_root_should_give_corresponding_value() {
     let value = scope.provide::<ScopedValue>();
     // Then
     assert_eq!(value.0.value(), 456);
+    assert_eq!(value.1 .0, &123);
 }
 
 #[test]

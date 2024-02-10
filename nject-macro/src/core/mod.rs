@@ -2,8 +2,8 @@ pub mod encoding;
 pub mod hash;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-use std::ops::Deref;
 use std::path::PathBuf;
+use std::{ops::Deref, str::FromStr};
 use syn::{
     parse::{Parse, ParseStream},
     spanned::Spanned,
@@ -119,8 +119,8 @@ pub fn extract_path_from_type(ty: &Type) -> &Path {
 }
 
 pub fn cache_path() -> PathBuf {
-    let root_path = env!("NJECT_OUT_DIR");
-    std::path::Path::new(root_path).join(".nject")
+    let out_dir = env!("NJECT_OUT_DIR");
+    std::path::PathBuf::from_str(out_dir).expect("Unable to construct NJECT_OUT_DIR")
 }
 
 /// Retry the `action` nth `times` with 100ms between each time.

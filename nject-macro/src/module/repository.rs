@@ -1,5 +1,10 @@
 use super::models::{Module, ModuleKey};
-use crate::core::{cache_path, encoding::base64::encode, retry};
+use crate::core::{
+    cache_path,
+    encoding::{base32, base64},
+    hash::fnv,
+    retry,
+};
 use std::{
     collections::HashMap,
     io::{BufRead, Write},
@@ -77,21 +82,7 @@ pub(crate) fn ensure(module: Module) {
     let module_dir = cache_path();
     let key = module.key();
     // OS have limits on file name size. If the name is too long, we use a portion of the original key with a hash.
-    let module_file_name = match key.0.len() < 50 {
-        true => to_file_name(key.0.as_bytes()),
-        false => {
-            let key_prefix = key.0[..34].as_bytes();
-            let hash = crate::core::hash::fnv(key.0.as_bytes());
-            let mut combined = [0u8; 50];
-            for i in 0..34 {
-                combined[i] = key_prefix[i] as u8;
-            }
-            for i in 0..16 {
-                combined[i + 34] = hash[i] as u8;
-            }
-            to_file_name(&combined)
-        }
-    };
+    let module_file_name = to_file_name(key.0.as_bytes());
     let module_path = module_dir.join(&module_file_name);
     let no_export_types = module.exported_types.is_empty();
     let mut exported_types_output = Vec::<u8>::new();
@@ -137,14 +128,24 @@ pub(crate) fn ensure(module: Module) {
     .expect("Unable to create module file");
 }
 
+/// Sanitize bytes into an encoded file name.
 fn to_file_name(data: &[u8]) -> String {
-    let encoded_data = encode(data);
-    let mut file_name = String::with_capacity(encoded_data.len());
-    for c in encoded_data {
-        match c {
-            b'/' => file_name.push('_'),
-            x => file_name.push(x as char),
+    let encoded = if data.len() > 40 {
+        let hash = fnv(data);
+        let prefix = &data[..32];
+        let mut combined = Vec::with_capacity(48);
+        combined.extend_from_slice(prefix);
+        combined.extend_from_slice(&hash);
+        let mut encoded_data = base64::encode(&combined);
+        // '/' is not a valid file name char
+        for byte in &mut encoded_data {
+            if *byte == b'/' {
+                *byte = b'_';
+            }
         }
-    }
-    file_name
+        encoded_data
+    } else {
+        base32::encode(data) // base32 is safe without hash on windows since it does not have a mix of lower/upper cases.
+    };
+    unsafe { String::from_utf8_unchecked(encoded) } // base64 & base32 are valid utf-8 bytes.
 }
