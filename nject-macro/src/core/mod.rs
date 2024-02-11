@@ -149,7 +149,18 @@ pub fn substitute_in_type(ty: &mut Type, from: &str, to: &str) {
     match ty {
         Type::Path(ref mut p) => substitute_in_path(&mut p.path, from, to),
         Type::Reference(ref mut r) => substitute_in_type(&mut r.elem, from, to),
-        _ => panic!("Unsupported type. Must be a Path or a Reference type."),
+        Type::TraitObject(ref mut t) => {
+            for bound in &mut t.bounds {
+                match bound {
+                    syn::TypeParamBound::Trait(t) => substitute_in_path(&mut t.path, from, to),
+                    _ => (),
+                }
+            }
+        }
+        _ => panic!(
+            "Unsupported type. Must be a Path, Reference or Trait: {}",
+            ty.to_token_stream().to_string()
+        ),
     };
 }
 
