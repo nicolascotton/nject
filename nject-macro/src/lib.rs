@@ -119,20 +119,27 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// mod sub {
 ///     use nject::{injectable, module};
+///     use std::rc::Rc;
 ///
 ///     #[injectable]
 ///     struct InternalType(#[inject(123)] i32); // Not visible outside of module.
 ///
 ///     #[injectable]
 ///     pub struct Facade<'a> {
-///         hidden: &'a InternalType
+///         hidden: &'a InternalType,
+///         public: Rc<i32>,
 ///     }
 ///
 ///     #[injectable]
-///     #[module]
+///     #[module(crate::sub::Self)] // Module absolute path.
+///     // Top exports are for public types.
+///     // To prevent name collision, public exports should not alias their types.
+///     #[export(std::rc::Rc<i32>, self.public.clone())]
 ///     pub struct Module {
-///         #[export]
-///         hidden: InternalType
+///         #[export] // Fields exports are for internal types.
+///         hidden: InternalType,
+///         #[inject(Rc::new(456))]
+///         public: Rc<i32>,
 ///     }
 /// }
 ///
@@ -140,7 +147,7 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// #[provider]
 /// struct Provider {
 ///     #[import]
-///     sub_mod: sub::Module
+///     sub_mod: crate::sub::Module // Module absolute path.
 /// }
 ///
 /// fn main() {

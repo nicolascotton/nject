@@ -118,6 +118,7 @@ pub fn extract_path_from_type(ty: &Type) -> &Path {
     }
 }
 
+/// Path to the cache directory.
 pub fn cache_path() -> PathBuf {
     let out_dir = env!("NJECT_OUT_DIR");
     std::path::PathBuf::from_str(out_dir).expect("Unable to construct NJECT_OUT_DIR")

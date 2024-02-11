@@ -13,12 +13,16 @@ impl From<&Ident> for ModuleKey {
 
 impl From<&Type> for ModuleKey {
     fn from(value: &Type) -> Self {
-        Self::from(extract_path_from_type(value))
+        let mut path = extract_path_from_type(value).to_owned();
+        Self::from(&mut path)
     }
 }
 
-impl From<&Path> for ModuleKey {
-    fn from(value: &Path) -> Self {
+impl From<&mut Path> for ModuleKey {
+    fn from(value: &mut Path) -> Self {
+        if let Some(ref crate_name) = current_crate_name() {
+            substitute_in_path(value, "crate", crate_name);
+        }
         Self(value.to_token_stream().to_string())
     }
 }
@@ -55,7 +59,7 @@ impl Module {
             .collect::<Vec<_>>();
 
         if let Some(module_crate) = &self.crate_name {
-            if let Ok(ref crate_name) = std::env::var("CARGO_PKG_NAME") {
+            if let Some(ref crate_name) = current_crate_name() {
                 if module_crate == crate_name {
                     return types;
                 }
@@ -71,10 +75,7 @@ impl Module {
 
 impl From<(&Ident, Option<&Path>, &[&Type])> for Module {
     fn from((ident, path, types): (&Ident, Option<&Path>, &[&Type])) -> Self {
-        let crate_name = match std::env::var("CARGO_PKG_NAME") {
-            Ok(x) => Some(x),
-            Err(_) => None,
-        };
+        let crate_name = current_crate_name();
         let mut path = match path {
             Some(p) => p.to_owned(),
             None => Path::from(PathSegment {
@@ -92,5 +93,21 @@ impl From<(&Ident, Option<&Path>, &[&Type])> for Module {
                 .map(|t| t.to_token_stream().to_string())
                 .collect(),
         }
+    }
+}
+
+/// Name of the current crate.
+fn current_crate_name() -> Option<String> {
+    match std::env::var("CARGO_PKG_NAME") {
+        Ok(mut x) => {
+            // Safe, only changing a char to another
+            for c in unsafe { x.as_mut_vec() } {
+                if *c == b'-' {
+                    *c = b'_';
+                }
+            }
+            Some(x)
+        }
+        Err(_) => None,
     }
 }
