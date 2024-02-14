@@ -313,9 +313,10 @@ mod sub {
     }
 
     #[injectable]
-    pub struct Facade {
+    pub struct Facade<'a> {
         public_box: Box<dyn Greeter>,
         public_rc: Rc<dyn Greeter>,
+        public_i32: &'a i32,
     }
 
     #[injectable]
@@ -327,6 +328,7 @@ mod sub {
     // To prevent name collisions, use absolute paths in types.
     #[export(std::boxed::Box<dyn crate::sub::Greeter>, |x: GreeterOne| Box::new(x))]
     #[export(std::rc::Rc<dyn crate::sub::Greeter>, self.public.clone())]
+    #[export(&'prov i32, &123)]
     pub struct Module {
         #[inject(|x: GreeterOne| Rc::new(x))]
         public: Rc<dyn Greeter>,
@@ -352,6 +354,7 @@ fn main() {
 ```
 #### Limitations
 1. Public exports are discovered as macros expand. Therefore, modules must expand before their use in any providers.
+   - This limitation is only applicable if **both** module and provider are defined in the same crate. 
 1. Generic parameters are not supported on modules.
 
 ### Use scopes to scope dependencies

@@ -30,6 +30,7 @@ impl From<&mut Path> for ModuleKey {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct Module {
     pub(crate) crate_name: Option<String>,
+    pub(crate) bin_name: Option<String>,
     pub(crate) path: String,
     pub(crate) exported_types: Vec<String>,
 }
@@ -59,8 +60,10 @@ impl Module {
             .collect::<Vec<_>>();
 
         if let Some(module_crate) = &self.crate_name {
-            if let Some(ref crate_name) = current_crate_name() {
-                if module_crate == crate_name {
+            if let Some(_) = &self.bin_name {
+                return types;
+            } else if let Some(ref crate_name) = current_crate_name() {
+                if module_crate == crate_name && current_bin_name().is_none() {
                     return types;
                 }
             }
@@ -87,6 +90,7 @@ impl From<(&Ident, Option<&Path>, &[&Type])> for Module {
         substitute_in_path(&mut path, "Self", &ident);
         Self {
             crate_name,
+            bin_name: current_bin_name(),
             path: path.to_token_stream().to_string(),
             exported_types: types
                 .iter()
@@ -98,16 +102,16 @@ impl From<(&Ident, Option<&Path>, &[&Type])> for Module {
 
 /// Name of the current crate.
 fn current_crate_name() -> Option<String> {
-    match std::env::var("CARGO_PKG_NAME") {
-        Ok(mut x) => {
-            // Safe, only changing a char to another
-            for c in unsafe { x.as_mut_vec() } {
-                if *c == b'-' {
-                    *c = b'_';
-                }
-            }
-            Some(x)
-        }
+    match std::env::var("CARGO_CRATE_NAME") {
+        Ok(x) => Some(x),
+        Err(_) => None,
+    }
+}
+
+/// Name of the current binary.
+fn current_bin_name() -> Option<String> {
+    match std::env::var("CARGO_BIN_NAME") {
+        Ok(x) => Some(x),
         Err(_) => None,
     }
 }

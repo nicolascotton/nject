@@ -36,12 +36,17 @@ fn init_cache() -> HashMap<ModuleKey, Module> {
                     })
                     .collect::<Vec<String>>();
                 let crate_name = lines.get(0).expect("Missing crate name field").to_owned();
-                let path = lines.get(1).expect("Missing path field").to_owned();
-                let exported_types = lines.iter().skip(2).map(|x| x.to_owned()).collect();
+                let bin_name = lines.get(1).expect("Missing bin name field").to_owned();
+                let path = lines.get(2).expect("Missing path field").to_owned();
+                let exported_types = lines.iter().skip(3).map(|x| x.to_owned()).collect();
                 let module = Module {
                     crate_name: match crate_name.is_empty() {
                         true => None,
                         false => Some(crate_name),
+                    },
+                    bin_name: match bin_name.is_empty() {
+                        true => None,
+                        false => Some(bin_name),
                     },
                     path,
                     exported_types,
@@ -88,6 +93,10 @@ pub(crate) fn ensure(module: Module) {
     let mut exported_types_output = Vec::<u8>::new();
     if let Some(crate_name) = &module.crate_name {
         exported_types_output.extend(crate_name.as_bytes());
+    }
+    exported_types_output.push(b'\n');
+    if let Some(bin_name) = &module.bin_name {
+        exported_types_output.extend(bin_name.as_bytes());
     }
     exported_types_output.push(b'\n');
     exported_types_output.extend((&module.path).as_bytes());
