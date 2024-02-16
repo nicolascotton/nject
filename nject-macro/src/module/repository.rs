@@ -27,7 +27,8 @@ fn init_cache() -> HashMap<ModuleKey, Module> {
             Err(_) => None,
         });
         for file in files {
-            if let Ok(file) = std::fs::File::open(file.path()) {
+            let file_path = file.path();
+            if let Ok(file) = std::fs::File::open(&file_path) {
                 let lines = std::io::BufReader::new(file).lines();
                 let lines = lines
                     .filter_map(|l| match l {
@@ -51,7 +52,10 @@ fn init_cache() -> HashMap<ModuleKey, Module> {
                     path,
                     exported_types,
                 };
-                cache.insert(module.key(), module);
+                match module.key() {
+                    Ok(key) => _ = cache.insert(key, module),
+                    Err(_) => _ = std::fs::remove_file(&file_path), // The file has an invalid key. We can remove it.
+                };
             }
         }
     }
@@ -85,7 +89,7 @@ pub(crate) fn get(key: &ModuleKey) -> Option<Module> {
 /// Ensure a module for the given key.
 pub(crate) fn ensure(module: Module) {
     let module_dir = cache_path();
-    let key = module.key();
+    let key = module.key().expect("Unable to construct module key.");
     // OS have limits on file name size. If the name is too long, we use a portion of the original key with a hash.
     let module_file_name = to_file_name(key.0.as_bytes());
     let module_path = module_dir.join(&module_file_name);

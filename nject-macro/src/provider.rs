@@ -230,7 +230,7 @@ fn gen_imports_for_import_attr(
                 {
                     #[inline]
                     fn provide(&'prov self) -> #ty {
-                        nject::RefInjectable::inject(&self.#fields_path_prefix #field_key, self)
+                        nject::RefInjectable::<#ty, Self>::inject(&self.#fields_path_prefix #field_key, self)
                     }
                 }
             }

@@ -92,17 +92,18 @@ fn provide_with_module_with_external_type_export_should_provide_its_members_corr
     assert_eq!(dep, 123)
 }
 
+#[injectable]
+#[module(crate::TestModule1)]
+#[export(std::rc::Rc<i32>, self.0.clone())]
+struct TestModule1(#[inject(Rc::new(123))] Rc<i32>);
+
 #[test]
 fn provide_with_module_with_external_type_export_with_simple_factory_should_provide_its_members_correctly(
 ) {
     // Given
     #[injectable]
-    #[module(TestModule1)]
-    #[export(std::rc::Rc<i32>, self.0.clone())]
-    struct TestModule1(#[inject(Rc::new(123))] Rc<i32>);
-    #[injectable]
     #[provider]
-    struct Provider(#[import] TestModule1);
+    struct Provider(#[import] crate::TestModule1);
     let provider = InitProvider.provide::<Provider>();
     // When
     let dep = provider.provide::<Rc<i32>>();

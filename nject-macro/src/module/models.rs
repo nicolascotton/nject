@@ -36,13 +36,13 @@ pub(crate) struct Module {
 }
 
 impl Module {
-    pub fn key(&self) -> ModuleKey {
+    pub fn key(&self) -> Result<ModuleKey, syn::Error> {
         let path_token_stream = self.path.parse().expect("Unable to parse module path.");
-        let mut path = syn::parse::<Path>(path_token_stream).expect("Unable to parse module path.");
+        let mut path = syn::parse::<Path>(path_token_stream)?;
         if let Some(ref crate_name) = self.crate_name {
             substitute_in_path(&mut path, "crate", crate_name);
         }
-        ModuleKey(path.to_token_stream().to_string())
+        Ok(ModuleKey(path.to_token_stream().to_string()))
     }
 
     pub fn exported_types(&self) -> Vec<Type> {
@@ -108,10 +108,13 @@ fn current_crate_name() -> Option<String> {
     }
 }
 
-/// Name of the current binary.
+/// Name of the current binary. If it's a bench or test, the name will be `test_bench`
 fn current_bin_name() -> Option<String> {
     match std::env::var("CARGO_BIN_NAME") {
         Ok(x) => Some(x),
-        Err(_) => None,
+        Err(_) => match std::env::var("CARGO_TARGET_TMPDIR") {
+            Ok(_) => Some(String::from("test_bench")),
+            Err(_) => None,
+        },
     }
 }
