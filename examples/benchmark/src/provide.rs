@@ -13,17 +13,6 @@ type ImplDepTrait8 = impl DepTrait8;
 type ImplDepTrait9 = impl DepTrait9;
 type ImplDepTrait10 = impl DepTrait10;
 
-impl DepTrait1 for Dep1 {}
-impl DepTrait2 for Dep2 {}
-impl DepTrait3 for Dep3 {}
-impl DepTrait4 for Dep4 {}
-impl DepTrait5 for Dep5 {}
-impl DepTrait6 for Dep6 {}
-impl DepTrait7 for Dep7 {}
-impl DepTrait8 for Dep8 {}
-impl DepTrait9 for Dep9 {}
-impl DepTrait10 for Dep10 {}
-
 #[provider]
 struct Provider;
 
