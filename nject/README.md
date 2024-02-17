@@ -340,7 +340,7 @@ mod sub {
 struct Provider {
     #[import]
     // To import module public exports, use the absolute path given in its definition.
-    sub_mod: crate::sub::Module 
+    sub_mod: crate::sub::Module,
 }
 
 fn main() {
@@ -355,6 +355,7 @@ fn main() {
 #### Limitations
 1. Public exports are discovered as macros expand. Therefore, modules must expand before their use in any providers.
    - This limitation is only applicable if **both** module and provider are defined in the same crate. 
+1. Requires `cargo` to build. Run `cargo clean -p nject-macro` to clean the cache if it ever gets corrupted.
 1. Generic parameters are not supported on modules.
 
 ### Use scopes to scope dependencies

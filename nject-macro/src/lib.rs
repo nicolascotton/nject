@@ -131,9 +131,12 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
 ///     }
 ///
 ///     #[injectable]
-///     #[module(crate::sub::Self)] // Module absolute path.
-///     // Top exports are for public types.
-///     // To prevent name collision, public exports should not alias their types.
+///     // The absolute public path to access the module.
+///     // If no path is given, the struct name will be used and must be unique across all modules.
+///     // Keywords like `crate` and `Self` will be substituted accordingly.
+///     #[module(crate::sub::Self)]
+///     // Public type exports must be made on the struct (not the fields).
+///     // To prevent name collisions, use absolute paths in types.
 ///     #[export(std::rc::Rc<i32>, self.public.clone())]
 ///     pub struct Module {
 ///         #[export] // Fields exports are for internal types.
@@ -147,7 +150,8 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// #[provider]
 /// struct Provider {
 ///     #[import]
-///     sub_mod: crate::sub::Module // Module absolute path.
+///     // To import module public exports, use the absolute path given in its definition.
+///     sub_mod: crate::sub::Module,
 /// }
 ///
 /// fn main() {
