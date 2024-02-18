@@ -103,3 +103,8 @@ pub trait Injectable<'prov, Injecty, Provider> {
 pub trait Import<Module> {
     fn reference(&self) -> &Module;
 }
+
+/// For internal purposes only. Should not be used.
+pub trait RefInjectable<'prov, Value, Provider> {
+    fn inject(&'prov self, provider: &'prov Provider) -> Value;
+}

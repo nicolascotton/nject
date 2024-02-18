@@ -1,6 +1,6 @@
-use nject::{injectable, provider};
-
 use crate::sub::Greeter;
+use nject::{injectable, module, provider};
+use std::rc::Rc;
 
 #[provider]
 struct InitProvider;
@@ -73,6 +73,78 @@ fn provide_with_module_with_dyn_dep_should_export_its_members_correctly() {
     let dep = provider.provide::<&dyn sub::Greeter>();
     // Then
     assert_eq!(dep.greet(), sub::GreeterOne.greet())
+}
+
+#[test]
+fn provide_with_module_with_external_type_export_should_provide_its_members_correctly() {
+    // Given
+    #[injectable]
+    #[module(Self)]
+    #[export(i32, 123)]
+    struct TestModuleWithLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongName;
+    #[injectable]
+    #[provider]
+    struct Provider(#[import] TestModuleWithLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongLongName);
+    let provider = InitProvider.provide::<Provider>();
+    // When
+    let dep = provider.provide::<i32>();
+    // Then
+    assert_eq!(dep, 123)
+}
+
+#[injectable]
+#[module(crate::TestModule1)]
+#[export(std::rc::Rc<i32>, self.0.clone())]
+struct TestModule1(#[inject(Rc::new(123))] Rc<i32>);
+
+#[test]
+fn provide_with_module_with_external_type_export_with_simple_factory_should_provide_its_members_correctly(
+) {
+    // Given
+    #[injectable]
+    #[provider]
+    struct Provider(#[import] crate::TestModule1);
+    let provider = InitProvider.provide::<Provider>();
+    // When
+    let dep = provider.provide::<Rc<i32>>();
+    // Then
+    assert_eq!(*dep, 123)
+}
+
+#[test]
+fn provide_with_module_with_external_type_export_with_complex_factory_should_provide_its_members_correctly(
+) {
+    // Given
+    #[injectable]
+    #[module]
+    #[export(Box<i32>, |x: i32| Box::new(x))]
+    struct TestModule2;
+    #[injectable]
+    #[provider]
+    #[provide(i32, 123)]
+    struct Provider(#[import] TestModule2);
+    let provider = InitProvider.provide::<Provider>();
+    // When
+    let dep = provider.provide::<Box<i32>>();
+    // Then
+    assert_eq!(*dep, 123)
+}
+
+#[test]
+fn provide_with_module_with_ref_external_type_export_should_provide_its_members_correctly() {
+    // Given
+    #[injectable]
+    #[module]
+    #[export(&'prov i32, &self.0)]
+    struct TestModule3(#[inject(123)] i32);
+    #[injectable]
+    #[provider]
+    struct Provider(#[import] TestModule3);
+    let provider = InitProvider.provide::<Provider>();
+    // When
+    let dep = provider.provide::<&i32>();
+    // Then
+    assert_eq!(dep, &123)
 }
 
 mod sub {

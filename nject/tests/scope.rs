@@ -16,6 +16,36 @@ fn provide_with_type_providable_by_root_should_be_providable_by_scope() {
 }
 
 #[test]
+fn provide_with_type_providable_by_root_import_should_be_providable_by_scope() {
+    // Given
+    #[injectable]
+    #[module]
+    #[export(i32, 456)]
+    struct TestModule;
+
+    #[injectable]
+    #[provider]
+    #[scope(i32)]
+    struct Root(#[import] TestModule);
+
+    #[injectable]
+    #[derive(PartialEq, Debug)]
+    struct ScopeDep<'a>(&'a i32);
+
+    #[provider]
+    struct InitProvider;
+
+    let root = InitProvider.provide::<Root>();
+    let scope = root.scope();
+    // When
+    let scope_dep = scope.provide::<ScopeDep>();
+    let value = scope.provide::<i32>();
+    // Then
+    assert_eq!(scope_dep, ScopeDep(&456));
+    assert_eq!(value, 456);
+}
+
+#[test]
 fn provide_with_scope_type_providable_by_root_should_expose_a_ref_to_the_type_in_scope() {
     // Given
     #[provider]
@@ -151,6 +181,7 @@ fn provide_with_generic_root_should_give_corresponding_value() {
     let value = scope.provide::<ScopedValue>();
     // Then
     assert_eq!(value.0.value(), 456);
+    assert_eq!(value.1 .0, &123);
 }
 
 #[test]

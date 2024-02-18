@@ -256,16 +256,17 @@ mod sub {
     #[injectable]
     pub struct Facade<'a> {
         hidden: &'a InternalType,
-        hidden_dyn: &'a dyn Greeter
+        hidden_dyn: &'a dyn Greeter,
     }
 
     #[injectable]
     #[module]
     pub struct Module {
+        // Internal shared type exports must be made on fields (not the struct).
         #[export]
         hidden: InternalType,
         #[export(dyn Greeter)]
-        hidden_dyn: GreeterOne
+        hidden_dyn: GreeterOne,
     }
 }
 
@@ -273,7 +274,7 @@ mod sub {
 #[provider]
 struct Provider {
     #[import]
-    sub_mod: sub::Module
+    sub_mod: sub::Module,
 }
 
 fn main() {
@@ -286,8 +287,75 @@ fn main() {
 
 ```
 #### Limitations
-1. Dependencies can only be exported by a single module.
-1. Modules can only export types defined in its crate.
+1. Internal dependencies can only be exported by a single module.
+1. Generic parameters are not supported on modules.
+
+### Use modules to export public dependencies
+```rust
+use nject::{injectable, provider};
+
+mod sub {
+    use nject::{injectable, module};
+    use std::boxed::Box;
+    use std::rc::Rc;
+
+    pub trait Greeter {
+        fn greet(&self) -> &str;
+    }
+
+    #[injectable]
+    struct GreeterOne;
+
+    impl Greeter for GreeterOne {
+        fn greet(&self) -> &str {
+            "One"
+        }
+    }
+
+    #[injectable]
+    pub struct Facade<'a> {
+        public_box: Box<dyn Greeter>,
+        public_rc: Rc<dyn Greeter>,
+        public_i32: &'a i32,
+    }
+
+    #[injectable]
+    // The absolute public path to access the module. 
+    // If no path is given, the struct name will be used and must be unique across all modules.
+    // Keywords like `crate` and `Self` will be substituted accordingly.
+    #[module(crate::sub::Self)]
+    // Public type exports must be made on the struct (not the fields). 
+    // To prevent name collisions, use absolute paths in types.
+    #[export(std::boxed::Box<dyn crate::sub::Greeter>, |x: GreeterOne| Box::new(x))]
+    #[export(std::rc::Rc<dyn crate::sub::Greeter>, self.public.clone())]
+    #[export(&'prov i32, &123)]
+    pub struct Module {
+        #[inject(|x: GreeterOne| Rc::new(x))]
+        public: Rc<dyn Greeter>,
+    }
+}
+
+#[injectable]
+#[provider]
+struct Provider {
+    #[import]
+    // To import module public exports, use the absolute path given in its definition.
+    sub_mod: crate::sub::Module,
+}
+
+fn main() {
+    #[provider]
+    struct InitProvider;
+
+    let provider = InitProvider.provide::<Provider>();
+    let _facade = provider.provide::<sub::Facade>();
+}
+
+```
+#### Limitations
+1. Public exports are discovered as macros expand. Therefore, modules must expand before their use in any providers.
+   - This limitation is only applicable if **both** module and provider are defined in the same crate. 
+1. Requires `cargo` to build. Run `cargo clean -p nject-macro` to clean the cache if it ever gets corrupted.
 1. Generic parameters are not supported on modules.
 
 ### Use scopes to scope dependencies

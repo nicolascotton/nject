@@ -33,7 +33,10 @@ pub(crate) fn handle_injectable(item: TokenStream) -> TokenStream {
                 .filter(|a| a.path().is_ident("inject"))
                 .last()
             {
-                Some(a) => Some(a.parse_args::<InjectExpr>().unwrap()),
+                Some(a) => Some(
+                    a.parse_args::<InjectExpr>()
+                        .expect("Unable to parse field attribute"),
+                ),
                 None => None,
             }
         })
