@@ -405,7 +405,7 @@ fn main() {
     let _other_scope_facade = other_scope.provide::<ScopeFacade>();
 }
 ```
-### Inject providers for value injection post creation
+### Inject providers for post-creation value injection
 ```rust
 use nject::{injectable, provider};
 
