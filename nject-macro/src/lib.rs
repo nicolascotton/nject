@@ -34,7 +34,7 @@ pub fn scope_helper_attr(_item: TokenStream) -> TokenStream {
     TokenStream::new()
 }
 
-/// Attribute to mark a struct as injectable.
+/// Mark a struct as injectable.
 /// ```rust
 /// use nject::{injectable, provider};
 ///
@@ -53,7 +53,7 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     handle_injectable(item)
 }
 
-/// Attribute to specify a desired injected value.
+/// Use the given value to inject.
 /// ```rust
 /// use nject::{inject, injectable, provider};
 ///
@@ -80,7 +80,7 @@ pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
     handle_inject(item, attr)
 }
 
-/// Attribute to provide a given instance for a specific type.
+/// Provide a value for a specific type.
 /// ```rust
 /// use nject::{injectable, provider};
 ///

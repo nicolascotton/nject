@@ -1,5 +1,4 @@
 use crate::core::{DeriveInput, FactoryExpr};
-use proc_macro;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use std::collections::HashMap;
@@ -170,6 +169,15 @@ pub(crate) fn handle_provider(item: proc_macro::TokenStream) -> proc_macro::Toke
             #[inline]
             fn provide(&'prov self) -> Njecty {
                 Njecty::inject(self)
+            }
+        }
+
+        impl<'prov, #(#generic_params,)*Njecty> nject::Provider<'prov, &'prov dyn nject::Provider<'prov, Njecty>> for #ident<#(#generic_keys),*>
+            where Self: nject::Provider<'prov, Njecty>, #where_predicates
+        {
+            #[inline]
+            fn provide(&'prov self) -> &'prov dyn nject::Provider<'prov, Njecty> {
+                self
             }
         }
 
