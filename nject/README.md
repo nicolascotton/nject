@@ -405,6 +405,32 @@ fn main() {
     let _other_scope_facade = other_scope.provide::<ScopeFacade>();
 }
 ```
+### Inject providers for post-creation value injection
+```rust
+use nject::{injectable, provider};
+
+#[injectable]
+struct Dep(#[inject(123)] i32);
+
+#[injectable]
+struct Factory<'a> {
+    dep_provider: &'a dyn nject::Provider<'a, Dep>,
+}
+
+impl<'a> Factory<'a> {
+    fn create_dep(&self) -> Dep {
+        self.dep_provider.provide()
+    }
+}
+
+#[provider]
+struct Provider;
+
+fn main() {
+    let factory = Provider.provide::<Factory>();
+    let dep = factory.create_dep();
+}
+```
 
 ## Examples
 You can look into the [axum](https://github.com/nicolascotton/nject/tree/main/examples/axum)/[actix](https://github.com/nicolascotton/nject/tree/main/examples/actix) example for a Web API use case or into the [Leptos](https://github.com/nicolascotton/nject/tree/main/examples/leptos) example for a Web App.

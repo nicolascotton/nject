@@ -122,6 +122,21 @@ fn provide_with_provide_attr_on_ref_field_with_specified_dyn_trait_should_give_c
     assert_eq!(value.greet(), provider.0.greet());
 }
 
+#[test]
+fn provide_with_value_factory_should_give_corresponding_factory() {
+    // Given
+    #[injectable]
+    #[derive(Debug, PartialEq)]
+    struct Dep(#[inject(123)] i32);
+
+    #[provider]
+    struct Provider;
+    // When
+    let provider = Provider.provide::<&dyn nject::Provider<Dep>>();
+    // Then
+    assert_eq!(provider.provide(), Dep(123));
+}
+
 trait Greeter {
     fn greet(&self) -> String;
 }
