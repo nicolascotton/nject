@@ -147,6 +147,34 @@ fn provide_with_module_with_ref_external_type_export_should_provide_its_members_
     assert_eq!(dep, &123)
 }
 
+#[test]
+fn provide_with_module_with_factory_internal_export_should_provide_its_members_correctly() {
+    // Given
+    #[derive(Debug, PartialEq)]
+    struct Ref<T: PartialEq>(Rc<T>);
+    #[injectable]
+    #[module]
+    struct Module(
+        #[inject(Rc::new(123))]
+        #[export(Ref<i32>, |x| Ref(x.clone()))]
+        Rc<i32>,
+        #[inject(Ref(Rc::new(456)))]
+        #[export(&'prov Ref<i32>, |x| &x)]
+        Ref<i32>,
+    );
+    #[injectable]
+    #[provider]
+    struct Provider(#[import] Module);
+    let provider = InitProvider.provide::<Provider>();
+    // When
+    let dep = provider.provide::<Ref<i32>>();
+    let dep_ref = provider.provide::<&Ref<i32>>();
+    // Then
+    assert_eq!(dep, Ref(Rc::new(123)));
+    assert!(Rc::ptr_eq(&dep.0, &provider.0 .0));
+    assert_eq!(*dep_ref.0, *provider.0 .1 .0);
+}
+
 mod sub {
     use nject::{injectable, module};
 

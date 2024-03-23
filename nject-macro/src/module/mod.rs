@@ -5,7 +5,10 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input, Expr, PatType, Path, Token, Type,
+    parse_macro_input,
+    Pat,
+    spanned::Spanned,
+    Expr, ExprClosure, Ident, PatType, Path, Token, Type,
 };
 
 enum ExportStructInput {
@@ -21,6 +24,43 @@ impl Parse for ExportStructInput {
             Ok(Self::TypeExprFact(parsed_type, expr.inputs, expr.body))
         } else {
             Ok(Self::TypeExpr(parsed_type, input.parse()?))
+        }
+    }
+}
+
+enum ExportFieldInput {
+    None,
+    Type(Type),
+    TypeExpr(Type, Ident, Box<Expr>),
+}
+impl Parse for ExportFieldInput {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        if input.is_empty() {
+            return Ok(Self::None);
+        }
+        let parsed_type = input.parse()?;
+        if !input.peek(Token![,]) {
+            return Ok(Self::Type(parsed_type));
+        }
+
+        input.parse::<Token![,]>()?;
+        let expr = input.parse::<ExprClosure>()?;
+        if expr.inputs.len() < 1 {
+            return Err(syn::Error::new(expr.span(), "Missing factory input."));
+        }
+        if expr.inputs.len() > 1 {
+            return Err(syn::Error::new(expr.span(), "More than one input found"));
+        }
+
+        let input = &expr.inputs[0];
+        if let Pat::Ident(pat_ident) = input {
+            Ok(Self::TypeExpr(
+                parsed_type,
+                pat_ident.ident.to_owned(),
+                expr.body,
+            ))
+        } else {
+            Err(syn::Error::new(input.span(), "Input must be an identity."))
         }
     }
 }
@@ -120,33 +160,62 @@ pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> TokenStream
         } else {
             quote! { &'prov }
         };
-        let attr_types = attrs.iter().map(|a| match a.meta {
-            syn::Meta::Path(_) => field.ty.to_owned(),
-            _ => a.parse_args::<Type>().expect("Unable to parse argument type.")
-        });
-        let ty_outputs = attr_types.map(|ty| match ty {
-            Type::Reference(r) => {
-                let inner_ty = &r.elem;
-                quote! { #ref_prefix #inner_ty }
-            },
-            _ => quote! { #ref_prefix #ty },
+        let inputs = attrs.iter().map(|a| match a.meta {
+            syn::Meta::Path(_) => ExportFieldInput::Type(field.ty.to_owned()),
+            _ => a.parse_args::<ExportFieldInput>().unwrap()
         });
         let index = syn::Index::from(*i);
     	let field_key = match &field.ident {
     		Some(i) => quote!{ #i },
     		None => quote!{ #index },
     	};
-        let outputs = ty_outputs.map(|ty_output| quote! {
-    		impl<'prov, #(#generic_params,)*NjectProvider> nject::Injectable<'prov, #ty_output, NjectProvider> for #ty_output
-    			where
-    				#prov_lifetimes
-    				NjectProvider: nject::Import<#ident<#(#generic_keys),*>>,#where_predicates
-    		{
-    			#[inline]
-    			fn inject(provider: &'prov NjectProvider) -> #ty_output {
-        			&provider.reference().#field_key
-    			}
-    		}
+        let outputs = inputs.map(|input| {
+            let ty = match &input {
+                ExportFieldInput::None =>  match &field.ty {
+                    Type::Reference(r) => {
+                        let inner_ty = &r.elem;
+                        quote! { #ref_prefix #inner_ty }
+                    },
+                    _ => {
+                        let ty = &field.ty;
+                        quote! { #ref_prefix #ty }
+                    },
+                },
+                ExportFieldInput::Type(t) => match t {
+                    Type::Reference(r) => {
+                        let inner_ty = &r.elem;
+                        quote! { #ref_prefix #inner_ty }
+                    },
+                    _ => quote! { #ref_prefix #t },
+                },
+                ExportFieldInput::TypeExpr(t, _, _) => quote! { #t },
+            };
+
+            let body = match &input {
+                ExportFieldInput::TypeExpr(_, i, e) => {
+                    let ref_prefix = match & field.ty {
+                        Type::Reference(_) => quote!{},
+                        _ => quote!{&},
+                    };
+                    quote!{
+                        let #i = #ref_prefix provider.reference(). #field_key;
+                        #e
+                    }
+                },
+                _ => quote!{ & provider.reference(). #field_key }
+            };
+            quote! {
+                impl<'prov, #(#generic_params,)*NjectProvider> nject::Injectable<'prov, #ty, NjectProvider> for #ty
+                    where
+                        #prov_lifetimes
+                        NjectProvider: nject::Import<#ident<#(#generic_keys),*>>,#where_predicates
+                {
+                    #[inline]
+                    fn inject(provider: &'prov NjectProvider) -> #ty {
+                        #body
+                    }
+                }
+            }
         });
         quote!{
             #(#outputs)*
