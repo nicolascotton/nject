@@ -6,9 +6,9 @@ use actix_web::{
     App, Error,
 };
 use nject::{injectable, provider};
-use user::UserModule;
+use user::{ConnectionOptions, UserModule};
 
-type Prov = Data<&'static Provider>;
+type Prov = Data<Provider>;
 
 #[injectable]
 #[provider]
@@ -18,16 +18,22 @@ pub struct Provider {
 }
 
 impl Provider {
-    pub fn new() -> Self {
+    pub fn new(db_url: &str) -> Self {
         #[provider]
-        struct InitProvider;
+        struct InitProvider<'a> {
+            #[provide]
+            conn: ConnectionOptions<'a>,
+        }
 
-        InitProvider.provide()
+        let init = InitProvider {
+            conn: ConnectionOptions { url: db_url },
+        };
+        init.provide()
     }
 }
 
 pub fn setup_app(
-    provider: &'static Provider,
+    provider: Prov,
 ) -> App<
     impl ServiceFactory<
             ServiceRequest,
@@ -37,7 +43,5 @@ pub fn setup_app(
             InitError = (),
         > + 'static,
 > {
-    App::new()
-        .app_data(Data::new(provider))
-        .service(user::create_scope())
+    App::new().app_data(provider).service(user::create_scope())
 }
