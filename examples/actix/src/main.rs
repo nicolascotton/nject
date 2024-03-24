@@ -2,7 +2,7 @@ use actix_example::{setup_app, Provider};
 use actix_web::{web::Data, HttpServer};
 use sqlx::{query, Connection, SqliteConnection};
 
-const DB_URL: &'static str = "file::memory:?cache=shared";
+const DB_URL: &str = "file::memory:?cache=shared";
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {

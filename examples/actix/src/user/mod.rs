@@ -26,7 +26,7 @@ impl Deref for Pool {
 #[injectable]
 #[module]
 pub struct UserModule {
-    #[inject(|o: &'prov ConnectionOptions<'prov>| Pool(sqlx::SqlitePool::connect_lazy(&o.url).expect("Invalid database URL")))]
+    #[inject(|o: &'prov ConnectionOptions<'prov>| Pool(sqlx::SqlitePool::connect_lazy(o.url).expect("Invalid database URL")))]
     #[export(Pool, |x| x.clone())]
     pool: Pool,
 }
