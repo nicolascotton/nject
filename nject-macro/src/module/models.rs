@@ -60,7 +60,7 @@ impl Module {
             .collect::<Vec<_>>();
 
         if let Some(module_crate) = &self.crate_name {
-            if let Some(_) = &self.bin_name {
+            if self.bin_name.is_some() {
                 return types;
             } else if let Some(ref crate_name) = current_crate_name() {
                 if module_crate == crate_name && current_bin_name().is_none() {

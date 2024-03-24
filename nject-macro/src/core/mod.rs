@@ -4,6 +4,7 @@ use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use std::path::PathBuf;
 use std::{ops::Deref, str::FromStr};
+use syn::Token;
 use syn::{
     parse::{Parse, ParseStream},
     spanned::Spanned,
@@ -47,8 +48,7 @@ impl DeriveInput {
     pub fn field_idents(&self) -> Vec<&Ident> {
         self.fields()
             .iter()
-            .map(|f| f.ident.as_ref())
-            .filter_map(|i| i)
+            .filter_map(|f| f.ident.as_ref())
             .collect::<Vec<_>>()
     }
     pub fn generic_params(&self) -> Vec<&GenericParam> {
@@ -110,6 +110,43 @@ impl Parse for FactoryExpr {
     }
 }
 
+pub enum FieldFactoryExpr {
+    None,
+    Type(Type),
+    TypeExpr(Type, Ident, Box<Expr>),
+}
+impl Parse for FieldFactoryExpr {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        if input.is_empty() {
+            return Ok(Self::None);
+        }
+        let parsed_type = input.parse()?;
+        if !input.peek(Token![,]) {
+            return Ok(Self::Type(parsed_type));
+        }
+
+        input.parse::<Token![,]>()?;
+        let expr = input.parse::<ExprClosure>()?;
+        if expr.inputs.is_empty() {
+            return Err(syn::Error::new(expr.span(), "Missing factory input."));
+        }
+        if expr.inputs.len() > 1 {
+            return Err(syn::Error::new(expr.span(), "More than one input found"));
+        }
+
+        let input = &expr.inputs[0];
+        if let Pat::Ident(pat_ident) = input {
+            Ok(Self::TypeExpr(
+                parsed_type,
+                pat_ident.ident.to_owned(),
+                expr.body,
+            ))
+        } else {
+            Err(syn::Error::new(input.span(), "Input must be an identity."))
+        }
+    }
+}
+
 pub fn extract_path_from_type(ty: &Type) -> &Path {
     match ty {
         Type::Path(p) => &p.path,
@@ -127,9 +164,7 @@ pub fn cache_path() -> PathBuf {
 /// Retry the `action` nth `times` with 100ms between each time.
 pub fn retry<T, E>(times: usize, action: impl Fn() -> Result<T, E>) -> Result<T, E> {
     let result = action();
-    if result.is_ok() {
-        result
-    } else if times <= 0 {
+    if result.is_ok() || times < 1 {
         result
     } else {
         std::thread::sleep(std::time::Duration::from_millis(100));
@@ -151,15 +186,14 @@ pub fn substitute_in_type(ty: &mut Type, from: &str, to: &str) {
         Type::Reference(ref mut r) => substitute_in_type(&mut r.elem, from, to),
         Type::TraitObject(ref mut t) => {
             for bound in &mut t.bounds {
-                match bound {
-                    syn::TypeParamBound::Trait(t) => substitute_in_path(&mut t.path, from, to),
-                    _ => (),
+                if let syn::TypeParamBound::Trait(t) = bound {
+                    substitute_in_path(&mut t.path, from, to)
                 }
             }
         }
         _ => panic!(
             "Unsupported type. Must be a Path, Reference or Trait: {}",
-            ty.to_token_stream().to_string()
+            ty.to_token_stream()
         ),
     };
 }

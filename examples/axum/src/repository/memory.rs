@@ -20,10 +20,6 @@ impl Repository for MemoryRepository {
 
     fn get(&self, user_id: usize) -> Option<User> {
         let users = self.users.lock().unwrap();
-        if let Some(user) = users.get(user_id) {
-            Some(user.to_owned())
-        } else {
-            None
-        }
+        users.get(user_id).map(|user| user.to_owned())
     }
 }

@@ -1,4 +1,4 @@
-use crate::core::{DeriveInput, FactoryExpr};
+use crate::core::{DeriveInput, FactoryExpr, FieldFactoryExpr};
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use std::collections::HashMap;
@@ -6,9 +6,7 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
-    spanned::Spanned,
-    Expr, ExprClosure, Field, GenericParam, Ident, Lifetime, LifetimeParam, Pat, PatType, Token,
-    Type,
+    Expr, Field, GenericParam, Ident, Lifetime, LifetimeParam, PatType, Token, Type,
 };
 
 enum ProvideStructInput {
@@ -28,42 +26,7 @@ impl Parse for ProvideStructInput {
     }
 }
 
-enum ProvideFieldInput {
-    None,
-    Type(Type),
-    TypeExpr(Type, Ident, Box<Expr>),
-}
-impl Parse for ProvideFieldInput {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        if input.is_empty() {
-            return Ok(Self::None);
-        }
-        let parsed_type = input.parse()?;
-        if !input.peek(Token![,]) {
-            return Ok(Self::Type(parsed_type));
-        }
-
-        input.parse::<Token![,]>()?;
-        let expr = input.parse::<ExprClosure>()?;
-        if expr.inputs.len() < 1 {
-            return Err(syn::Error::new(expr.span(), "Missing factory input."));
-        }
-        if expr.inputs.len() > 1 {
-            return Err(syn::Error::new(expr.span(), "More than one input found"));
-        }
-
-        let input = &expr.inputs[0];
-        if let Pat::Ident(pat_ident) = input {
-            Ok(Self::TypeExpr(
-                parsed_type,
-                pat_ident.ident.to_owned(),
-                expr.body,
-            ))
-        } else {
-            Err(syn::Error::new(input.span(), "Input must be an identity."))
-        }
-    }
-}
+type ProvideFieldInput = FieldFactoryExpr;
 
 pub(crate) fn handle_provider(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
@@ -82,15 +45,11 @@ pub(crate) fn handle_provider(item: proc_macro::TokenStream) -> proc_macro::Toke
         .iter()
         .enumerate()
         .filter_map(|(i, f)| {
-            match f
-                .attrs
+            f.attrs
                 .iter()
                 .filter(|a| a.path().is_ident("import"))
                 .last()
-            {
-                Some(_) => Some(i),
-                None => None,
-            }
+                .map(|_| i)
         })
         .collect::<Vec<_>>();
     let provide_attr_indexes = fields
@@ -122,7 +81,7 @@ pub(crate) fn handle_provider(item: proc_macro::TokenStream) -> proc_macro::Toke
 
     let fields_path_prefix = quote! {};
     let import_outputs = gen_imports_for_import_attr(
-        &ident,
+        ident,
         &generic_params,
         &generic_keys,
         &where_predicates,
@@ -131,7 +90,7 @@ pub(crate) fn handle_provider(item: proc_macro::TokenStream) -> proc_macro::Toke
         &import_attr_indexes,
     );
     let provide_outputs = gen_providers_for_provide_attr_on_fields(
-        &ident,
+        ident,
         &generic_params,
         &generic_keys,
         &where_predicates,
@@ -140,24 +99,24 @@ pub(crate) fn handle_provider(item: proc_macro::TokenStream) -> proc_macro::Toke
         &provide_attr_indexes,
     );
     let input_provide_outputs = gen_providers_for_provide_attr_on_struct(
-        &ident,
+        ident,
         &generic_params,
         &generic_keys,
         &where_predicates,
         &provide_input_attr,
     );
-    let scope_output = gen_scope_output(
-        &input.vis,
-        &ident,
-        &generic_params,
-        &generic_keys,
-        &where_predicates,
-        &fields,
-        &import_attr_indexes,
-        &provide_attr_indexes,
-        &provide_input_attr,
-        &scope_attr,
-    );
+    let scope_output = gen_scope_output(GenScopeOuptutInput {
+        visibility: &input.vis,
+        ident,
+        generic_params: &generic_params,
+        generic_keys: &generic_keys,
+        where_predicates: &where_predicates,
+        fields: &fields,
+        import_attr_indexes: &import_attr_indexes,
+        provide_attr_indexes: &provide_attr_indexes,
+        provide_input_attr: &provide_input_attr,
+        scope_input_attr: &scope_attr,
+    });
 
     let output = quote! {
         #[derive(nject::ProviderHelperAttr)]
@@ -342,7 +301,7 @@ fn gen_providers_for_provide_attr_on_fields(
     provide_outputs.collect()
 }
 
-pub(crate) fn gen_providers_for_provide_attr_on_struct<'a>(
+pub(crate) fn gen_providers_for_provide_attr_on_struct(
     ident: &Ident,
     generic_params: &[&GenericParam],
     generic_keys: &[proc_macro2::TokenStream],
@@ -373,17 +332,32 @@ pub(crate) fn gen_providers_for_provide_attr_on_struct<'a>(
     input_provide_outputs.collect()
 }
 
+struct GenScopeOuptutInput<'a> {
+    visibility: &'a syn::Visibility,
+    ident: &'a Ident,
+    generic_params: &'a [&'a GenericParam],
+    generic_keys: &'a [proc_macro2::TokenStream],
+    where_predicates: &'a proc_macro2::TokenStream,
+    fields: &'a [&'a syn::Field],
+    import_attr_indexes: &'a [usize],
+    provide_attr_indexes: &'a [(usize, Vec<&'a syn::Attribute>)],
+    provide_input_attr: &'a [&'a syn::Attribute],
+    scope_input_attr: &'a [&'a syn::Attribute],
+}
+
 fn gen_scope_output(
-    visibility: &syn::Visibility,
-    ident: &Ident,
-    generic_params: &[&GenericParam],
-    generic_keys: &[proc_macro2::TokenStream],
-    where_predicates: &proc_macro2::TokenStream,
-    fields: &[&syn::Field],
-    import_attr_indexes: &[usize],
-    provide_attr_indexes: &[(usize, Vec<&syn::Attribute>)],
-    provide_input_attr: &[&syn::Attribute],
-    scope_input_attr: &[&syn::Attribute],
+    GenScopeOuptutInput {
+        visibility,
+        ident,
+        generic_params,
+        generic_keys,
+        where_predicates,
+        fields,
+        import_attr_indexes,
+        provide_attr_indexes,
+        provide_input_attr,
+        scope_input_attr,
+    }: GenScopeOuptutInput<'_>,
 ) -> proc_macro2::TokenStream {
     if scope_input_attr.is_empty() {
         return proc_macro2::TokenStream::new();
@@ -406,9 +380,8 @@ fn gen_scope_output(
                 .expect("Unable to parse scope field.")
         })
         .collect::<Vec<_>>();
-    let grouped_fields = group_by(scope_fields.iter(), |k| match &k.ident {
-        Some(i) => Some(i.to_string()),
-        None => None,
+    let grouped_fields = group_by(scope_fields.iter(), |k| {
+        k.ident.as_ref().map(|i| i.to_string())
     });
     let scope_outputs = grouped_fields.iter().map(|(scope_name, scope_fields)|{
         let scope_ident = match scope_name {
@@ -420,13 +393,10 @@ fn gen_scope_output(
             None => format_ident!("scope"),
         };
     let arg_scope_fields =  scope_fields.iter()
-        .map(|f| match f.attrs.iter().filter(|a| match &a.meta {
+        .map(|f| f.attrs.iter().filter(|a| match &a.meta {
             syn::Meta::Path(p) => p.is_ident("arg"),
             _ => false,
-        }).last() {
-            Some(_) => true,
-            None => false,
-        }).collect::<Vec<_>>();
+        }).last().is_some()).collect::<Vec<_>>();
         let scope_field_outputs = scope_fields.iter().map(|f| {
             let mut f = f.to_owned().to_owned();
             f.ident = None;
@@ -434,9 +404,9 @@ fn gen_scope_output(
         });
         let root_path = syn::Index::from(scope_fields.len());
         let fields_path_prefix = quote!{#root_path.};
-        let import_outputs = gen_imports_for_import_attr(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &fields_path_prefix, &fields, &import_attr_indexes);
-        let provide_outputs = gen_providers_for_provide_attr_on_fields(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &fields_path_prefix, &fields, &provide_attr_indexes);
-        let input_provide_outputs = gen_providers_for_provide_attr_on_struct(&scope_ident, &scope_generic_params, &scope_generic_keys, &where_predicates, &provide_input_attr);
+        let import_outputs = gen_imports_for_import_attr(&scope_ident, &scope_generic_params, &scope_generic_keys, where_predicates, &fields_path_prefix, fields, import_attr_indexes);
+        let provide_outputs = gen_providers_for_provide_attr_on_fields(&scope_ident, &scope_generic_params, &scope_generic_keys, where_predicates, &fields_path_prefix, fields, provide_attr_indexes);
+        let input_provide_outputs = gen_providers_for_provide_attr_on_struct(&scope_ident, &scope_generic_params, &scope_generic_keys, where_predicates, provide_input_attr);
         let scope_field_provides = scope_fields.iter()
             .enumerate()
             .map(|(i, _)| match arg_scope_fields[i] {

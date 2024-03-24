@@ -236,6 +236,7 @@ use nject::{injectable, provider};
 
 mod sub {
     use nject::{injectable, module};
+    use std::rc::Rc;
 
     trait Greeter {
         fn greet(&self) -> &str;
@@ -253,10 +254,13 @@ mod sub {
     #[injectable]
     struct InternalType(#[inject(123)] i32); // Not visible outside of module.
 
+    struct Ref<T>(Rc<T>);
+
     #[injectable]
     pub struct Facade<'a> {
         hidden: &'a InternalType,
         hidden_dyn: &'a dyn Greeter,
+        hidden_ref: Ref<InternalType>,
     }
 
     #[injectable]
@@ -267,6 +271,9 @@ mod sub {
         hidden: InternalType,
         #[export(dyn Greeter)]
         hidden_dyn: GreeterOne,
+        #[inject(|x: InternalType| Rc::new(x))]
+        #[export(Ref<InternalType>, |x| Ref(x.clone()))]
+        hidden_rc: Rc<InternalType>,
     }
 }
 
@@ -428,7 +435,7 @@ struct Provider;
 
 fn main() {
     let factory = Provider.provide::<Factory>();
-    let dep = factory.create_dep();
+    let _dep = factory.create_dep();
 }
 ```
 

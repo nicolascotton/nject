@@ -19,7 +19,7 @@ pub fn create_scope() -> Scope {
 
 #[get("/{user_id}")]
 async fn get_user(provider: Prov, user_id: Path<i64>) -> Result<impl Responder> {
-    let service = provider.provide::<&UserService>();
+    let service = provider.provide::<UserService>();
     let result = service.get(*user_id).await;
     match result {
         Ok(user) => Ok(Either::Left(web::Json(user))),
@@ -32,7 +32,7 @@ async fn get_user(provider: Prov, user_id: Path<i64>) -> Result<impl Responder> 
 
 #[post("/")]
 async fn create_user(provider: Prov, user: Json<CreateUser>) -> Result<impl Responder> {
-    let service = provider.provide::<&UserService>();
+    let service = provider.provide::<UserService>();
     let result = service.create(&user).await;
     match result {
         Ok(user) => Ok(Either::Left(web::Json(user))),
@@ -45,7 +45,7 @@ async fn create_user(provider: Prov, user: Json<CreateUser>) -> Result<impl Resp
 
 #[put("/")]
 async fn update_user(provider: Prov, user: Json<User>) -> Result<impl Responder> {
-    let service = provider.provide::<&UserService>();
+    let service = provider.provide::<UserService>();
     let result = service.update(&user).await;
     match result {
         Ok(_) => Ok(Either::Left(HttpResponse::Ok())),
@@ -58,7 +58,7 @@ async fn update_user(provider: Prov, user: Json<User>) -> Result<impl Responder>
 
 #[delete("/{user_id}")]
 async fn delete_user(provider: Prov, user_id: Path<i64>) -> Result<impl Responder> {
-    let service = provider.provide::<&UserService>();
+    let service = provider.provide::<UserService>();
     let result = service.delete(*user_id).await;
     match result {
         Ok(_) => Ok(Either::Left(HttpResponse::Ok())),
