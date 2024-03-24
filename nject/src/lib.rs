@@ -28,10 +28,8 @@ pub use nject_macro::{
 ///     shared: SharedDependencyToProvide
 /// }
 ///
-/// fn main() {
-///     let provider = Provider { shared: SharedDependencyToProvide { value: 123 } };
-///     let _facade: Facade = provider.provide();
-/// }
+/// let provider = Provider { shared: SharedDependencyToProvide { value: 123 } };
+/// let facade: Facade = provider.provide();
 /// ```
 pub trait Provider<'prov, Value> {
     fn provide(&'prov self) -> Value;
@@ -54,9 +52,7 @@ pub trait Provider<'prov, Value> {
 /// #[provider]
 /// struct Provider;
 ///
-/// fn main() {
-///     let _facade: Facade = Provider.provide();
-/// }
+/// let _facade: Facade = Provider.provide();
 /// ```
 pub trait Injectable<'prov, Injecty, Provider> {
     fn inject(provider: &'prov Provider) -> Injecty;
@@ -92,13 +88,11 @@ pub trait Injectable<'prov, Injecty, Provider> {
 ///     subModule: sub::Module
 /// }
 ///
-/// fn main() {
-///     #[provider]
-///     struct InitProvider;
+/// #[provider]
+/// struct InitProvider;
 ///
-///     let provider = InitProvider.provide::<Provider>();
-///     let _facade = provider.provide::<sub::Facade>();
-/// }
+/// let provider = InitProvider.provide::<Provider>();
+/// let facade = provider.provide::<sub::Facade>();
 /// ```
 pub trait Import<Module> {
     fn reference(&self) -> &Module;

@@ -44,9 +44,7 @@ pub fn scope_helper_attr(_item: TokenStream) -> TokenStream {
 /// #[provider]
 /// struct Provider;
 ///
-/// fn main() {
-///     let _facade: Facade = Provider.provide();
-/// }
+/// let facade: Facade = Provider.provide();
 /// ```
 #[proc_macro_attribute]
 pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -71,9 +69,7 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// #[provider]
 /// struct Provider;
 ///
-/// fn main() {
-///     let _facade: Facade = Provider.provide();
-/// }
+/// let facade: Facade = Provider.provide();
 /// ```
 #[proc_macro_attribute]
 pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -102,17 +98,16 @@ pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///     shared: SharedDependency
 /// }
 ///
-/// fn main() {
-///     let provider = Provider { shared: SharedDependency { value: 456 } };
-///     let _dependency: Dependency = provider.provide();
-///     let _facade: Facade = provider.provide();
-/// }
+/// let provider = Provider { shared: SharedDependency { value: 456 } };
+/// let dependency: Dependency = provider.provide();
+/// let facade: Facade = provider.provide();
 /// ```
 #[proc_macro_attribute]
 pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
     handle_provider(item)
 }
 
+#[allow(clippy::needless_doctest_main)]
 /// Declare a module to export internal types.
 /// ```rust
 /// use nject::{injectable, provider};
@@ -154,12 +149,12 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
 ///     sub_mod: crate::sub::Module,
 /// }
 ///
-/// fn main() {
-///     #[provider]
-///     struct InitProvider;
+/// #[provider]
+/// struct InitProvider;
 ///
+/// fn main() {
 ///     let provider = InitProvider.provide::<Provider>();
-///     let _facade = provider.provide::<sub::Facade>();
+///     let facade = provider.provide::<sub::Facade>();
 /// }
 /// ```
 #[proc_macro_attribute]

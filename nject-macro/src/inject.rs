@@ -25,9 +25,9 @@ pub(crate) fn handle_inject(item: TokenStream, attr: TokenStream) -> TokenStream
     let generic_params = input.generic_params();
     let generic_keys = input.generic_keys();
     let lifetime_keys = input.lifetime_keys();
-    let prov_lifetimes = match lifetime_keys.len() > 0 {
-        true => quote! { 'prov: #(#lifetime_keys)+*, },
-        false => quote! {},
+    let prov_lifetimes = match lifetime_keys.is_empty() {
+        false => quote! { 'prov: #(#lifetime_keys)+*, },
+        true => quote! {},
     };
     let prov_types = attributes.1.iter().map(|x| &x.ty).collect::<Vec<_>>();
     let where_predicates = match &input.generics.where_clause {

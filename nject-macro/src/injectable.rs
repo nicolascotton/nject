@@ -27,26 +27,22 @@ pub(crate) fn handle_injectable(item: TokenStream) -> TokenStream {
     let attributes = fields
         .iter()
         .map(|f| {
-            match f
-                .attrs
+            f.attrs
                 .iter()
                 .filter(|a| a.path().is_ident("inject"))
                 .last()
-            {
-                Some(a) => Some(
+                .map(|a| {
                     a.parse_args::<InjectExpr>()
-                        .expect("Unable to parse field attribute"),
-                ),
-                None => None,
-            }
+                        .expect("Unable to parse field attribute")
+                })
         })
         .collect::<Vec<_>>();
     let generic_params = input.generic_params();
     let generic_keys = input.generic_keys();
     let lifetime_keys = input.lifetime_keys();
-    let prov_lifetimes = match lifetime_keys.len() > 0 {
-        true => quote! { 'prov: #(#lifetime_keys)+*, },
-        false => quote! {},
+    let prov_lifetimes = match lifetime_keys.is_empty() {
+        false => quote! { 'prov: #(#lifetime_keys)+*, },
+        true => quote! {},
     };
     let where_predicates = match &input.generics.where_clause {
         Some(w) => {

@@ -1,14 +1,11 @@
 pub mod models;
 pub mod repository;
-use crate::core::{DeriveInput, FactoryExpr};
+use crate::core::{DeriveInput, FactoryExpr, FieldFactoryExpr};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input,
-    Pat,
-    spanned::Spanned,
-    Expr, ExprClosure, Ident, PatType, Path, Token, Type,
+    parse_macro_input, Expr, PatType, Path, Token, Type,
 };
 
 enum ExportStructInput {
@@ -28,42 +25,7 @@ impl Parse for ExportStructInput {
     }
 }
 
-enum ExportFieldInput {
-    None,
-    Type(Type),
-    TypeExpr(Type, Ident, Box<Expr>),
-}
-impl Parse for ExportFieldInput {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        if input.is_empty() {
-            return Ok(Self::None);
-        }
-        let parsed_type = input.parse()?;
-        if !input.peek(Token![,]) {
-            return Ok(Self::Type(parsed_type));
-        }
-
-        input.parse::<Token![,]>()?;
-        let expr = input.parse::<ExprClosure>()?;
-        if expr.inputs.len() < 1 {
-            return Err(syn::Error::new(expr.span(), "Missing factory input."));
-        }
-        if expr.inputs.len() > 1 {
-            return Err(syn::Error::new(expr.span(), "More than one input found"));
-        }
-
-        let input = &expr.inputs[0];
-        if let Pat::Ident(pat_ident) = input {
-            Ok(Self::TypeExpr(
-                parsed_type,
-                pat_ident.ident.to_owned(),
-                expr.body,
-            ))
-        } else {
-            Err(syn::Error::new(input.span(), "Input must be an identity."))
-        }
-    }
-}
+type ExportFieldInput = FieldFactoryExpr;
 
 pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
@@ -113,9 +75,9 @@ pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> TokenStream
     repository::ensure(module);
     let generic_keys = input.generic_keys();
     let lifetime_keys = input.lifetime_keys();
-    let prov_lifetimes = match lifetime_keys.len() > 0 {
-        true => quote! { 'prov: #(#lifetime_keys)+*, },
-        false => quote! {},
+    let prov_lifetimes = match lifetime_keys.is_empty() {
+        false => quote! { 'prov: #(#lifetime_keys)+*, },
+        true => quote! {},
     };
 
     let where_predicates = match &input.generics.where_clause {
@@ -130,11 +92,11 @@ pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> TokenStream
         .iter_mut()
         .map(|t| {
             let mut empty = vec![];
-            let (mut ty, inputs, value) = match t {
+            let (ty, inputs, value) = match t {
                 ExportStructInput::TypeExpr(t, v) => (t,&mut empty, v),
                 ExportStructInput::TypeExprFact(t, i, v) => (t, i, v),
             };
-            super::core::substitute_in_type(&mut ty, "Self", ident.to_string().as_str());
+            super::core::substitute_in_type(ty, "Self", ident.to_string().as_str());
             let prov_types = inputs.iter().map(|i| &i.ty);
             quote!{
 

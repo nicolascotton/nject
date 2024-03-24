@@ -15,7 +15,7 @@ use std::{
 fn init_cache() -> HashMap<ModuleKey, Module> {
     let mut cache = HashMap::new();
     let cache_root_dir = cache_path();
-    if let Ok(dir) = std::fs::read_dir(&cache_root_dir) {
+    if let Ok(dir) = std::fs::read_dir(cache_root_dir) {
         let files = dir.filter_map(|x| match x {
             Ok(e) => match e.file_type() {
                 Ok(t) => match t.is_file() {
@@ -36,7 +36,7 @@ fn init_cache() -> HashMap<ModuleKey, Module> {
                         Err(_) => None,
                     })
                     .collect::<Vec<String>>();
-                let crate_name = lines.get(0).expect("Missing crate name field").to_owned();
+                let crate_name = lines.first().expect("Missing crate name field").to_owned();
                 let bin_name = lines.get(1).expect("Missing bin name field").to_owned();
                 let path = lines.get(2).expect("Missing path field").to_owned();
                 let exported_types = lines.iter().skip(3).map(|x| x.to_owned()).collect();
@@ -79,10 +79,7 @@ fn update_cache<R>(update: impl FnOnce(&mut HashMap<ModuleKey, Module>) -> R) ->
 pub(crate) fn get(key: &ModuleKey) -> Option<Module> {
     CACHE.with(move |cache| {
         let cache = cache.read().expect("Unable to gain cache access.");
-        match cache.get(key) {
-            Some(v) => Some(v.clone()),
-            None => None,
-        }
+        cache.get(key).cloned()
     })
 }
 
@@ -92,7 +89,7 @@ pub(crate) fn ensure(module: Module) {
     let key = module.key().expect("Unable to construct module key.");
     // OS have limits on file name size. If the name is too long, we use a portion of the original key with a hash.
     let module_file_name = to_file_name(key.0.as_bytes());
-    let module_path = module_dir.join(&module_file_name);
+    let module_path = module_dir.join(module_file_name);
     let no_export_types = module.exported_types.is_empty();
     let mut exported_types_output = Vec::<u8>::new();
     if let Some(crate_name) = &module.crate_name {
@@ -103,7 +100,7 @@ pub(crate) fn ensure(module: Module) {
         exported_types_output.extend(bin_name.as_bytes());
     }
     exported_types_output.push(b'\n');
-    exported_types_output.extend((&module.path).as_bytes());
+    exported_types_output.extend(module.path.as_bytes());
     exported_types_output.push(b'\n');
     for ty in &module.exported_types {
         exported_types_output.extend(ty.as_bytes());
