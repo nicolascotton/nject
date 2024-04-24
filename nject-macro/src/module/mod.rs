@@ -167,6 +167,7 @@ pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> TokenStream
                 _ => quote!{ & provider.reference(). #field_key }
             };
             quote! {
+                #[allow(non_local_definitions)]
                 impl<'prov, #(#generic_params,)*NjectProvider> nject::Injectable<'prov, #ty, NjectProvider> for #ty
                     where
                         #prov_lifetimes
