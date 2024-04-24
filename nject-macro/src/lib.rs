@@ -1,3 +1,4 @@
+#![allow(clippy::needless_doctest_main)]
 #![doc = include_str!("../README.md")]
 mod core;
 mod inject;
@@ -107,7 +108,6 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
     handle_provider(item)
 }
 
-#[allow(clippy::needless_doctest_main)]
 /// Declare a module to export internal types.
 /// ```rust
 /// use nject::{injectable, provider};
