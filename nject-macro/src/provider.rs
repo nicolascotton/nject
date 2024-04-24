@@ -379,10 +379,7 @@ fn gen_scope_output(
         .iter()
         .map(|a| {
             a.parse_args_with(parse_scope_field).map_err(|e| {
-                error::combine(
-                    syn::Error::new(a.span().into(), "Unable to parse scope field."),
-                    e,
-                )
+                error::combine(syn::Error::new(a.span(), "Unable to parse scope field."), e)
             })
         })
         .collect::<syn::Result<Vec<_>>>()?;

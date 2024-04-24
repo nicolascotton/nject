@@ -28,25 +28,22 @@ pub(crate) fn handle_injectable(item: TokenStream) -> syn::Result<TokenStream> {
     let attributes = fields
         .iter()
         .map(|f| {
-            f.attrs
+            let Some(attr) = f
+                .attrs
                 .iter()
                 .filter(|a| a.path().is_ident("inject"))
                 .last()
-                .map(|a| {
-                    a.parse_args::<InjectExpr>()
-                        .map_err(|e| {
-                            error::combine(
-                                syn::Error::new(
-                                    a.span().into(),
-                                    "Unable to parse inject attribute",
-                                ),
-                                e,
-                            )
-                        })
-                        .unwrap()
-                })
+            else {
+                return Ok(None);
+            };
+            attr.parse_args::<InjectExpr>().map(Some).map_err(|e| {
+                error::combine(
+                    syn::Error::new(attr.span(), "Unable to parse inject attribute"),
+                    e,
+                )
+            })
         })
-        .collect::<Vec<_>>();
+        .collect::<syn::Result<Vec<_>>>()?;
     let generic_params = input.generic_params();
     let generic_keys = input.generic_keys();
     let lifetime_keys = input.lifetime_keys();
