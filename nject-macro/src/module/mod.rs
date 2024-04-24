@@ -1,11 +1,12 @@
 pub mod models;
 pub mod repository;
-use crate::core::{DeriveInput, FactoryExpr, FieldFactoryExpr};
+use crate::core::{error, DeriveInput, FactoryExpr, FieldFactoryExpr};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input, Expr, PatType, Path, Token, Type,
+    spanned::Spanned,
+    Expr, PatType, Path, Token, Type,
 };
 
 enum ExportStructInput {
@@ -27,11 +28,16 @@ impl Parse for ExportStructInput {
 
 type ExportFieldInput = FieldFactoryExpr;
 
-pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as DeriveInput);
+pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> {
+    let input = syn::parse::<DeriveInput>(item)?;
     let module_pub_path = match attr.is_empty() {
         true => None,
-        false => Some(syn::parse::<Path>(attr).expect("Invalid public module path")),
+        false => {
+            let path = syn::parse::<Path>(attr).map_err(|e| {
+                error::combine(syn::Error::new(e.span(), "Invalid public module path"), e)
+            })?;
+            Some(path)
+        }
     };
     let ident = &input.ident;
     let fields = input.fields().iter().collect::<Vec<_>>();
@@ -40,10 +46,14 @@ pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> TokenStream
         .iter()
         .filter(|a| a.path().is_ident("export"))
         .map(|a| {
-            a.parse_args::<ExportStructInput>()
-                .expect("Unable to parse struct export attribute.")
+            a.parse_args::<ExportStructInput>().map_err(|e| {
+                error::combine(
+                    syn::Error::new(a.span(), "Unable to parse struct export attribute."),
+                    e,
+                )
+            })
         })
-        .collect::<Vec<_>>();
+        .collect::<syn::Result<Vec<_>>>()?;
     let export_attr_indexes = fields
         .iter()
         .enumerate()
@@ -191,5 +201,5 @@ pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> TokenStream
         #(#struct_export_outputs)*
         #(#export_outputs)*
     };
-    output.into()
+    Ok(output.into())
 }
