@@ -1,11 +1,11 @@
-use crate::core::{DeriveInput, FactoryExpr, FieldFactoryExpr};
+use crate::core::{error, DeriveInput, FactoryExpr, FieldFactoryExpr};
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use std::collections::HashMap;
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input,
     punctuated::Punctuated,
+    spanned::Spanned,
     Expr, Field, GenericParam, Ident, Lifetime, LifetimeParam, PatType, Token, Type,
 };
 
@@ -28,8 +28,10 @@ impl Parse for ProvideStructInput {
 
 type ProvideFieldInput = FieldFactoryExpr;
 
-pub(crate) fn handle_provider(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = parse_macro_input!(item as DeriveInput);
+pub(crate) fn handle_provider(
+    item: proc_macro::TokenStream,
+) -> syn::Result<proc_macro::TokenStream> {
+    let input = syn::parse::<DeriveInput>(item)?;
     let ident = &input.ident;
     let fields = input.fields().iter().collect::<Vec<_>>();
     let generic_keys = input.generic_keys();
@@ -116,7 +118,7 @@ pub(crate) fn handle_provider(item: proc_macro::TokenStream) -> proc_macro::Toke
         provide_attr_indexes: &provide_attr_indexes,
         provide_input_attr: &provide_input_attr,
         scope_input_attr: &scope_attr,
-    });
+    })?;
 
     let output = quote! {
         #[derive(nject::ProviderHelperAttr)]
@@ -156,7 +158,7 @@ pub(crate) fn handle_provider(item: proc_macro::TokenStream) -> proc_macro::Toke
 
         #scope_output
     };
-    output.into()
+    Ok(output.into())
 }
 
 fn gen_imports_for_import_attr(
@@ -358,9 +360,9 @@ fn gen_scope_output(
         provide_input_attr,
         scope_input_attr,
     }: GenScopeOuptutInput<'_>,
-) -> proc_macro2::TokenStream {
+) -> syn::Result<proc_macro2::TokenStream> {
     if scope_input_attr.is_empty() {
-        return proc_macro2::TokenStream::new();
+        return Ok(proc_macro2::TokenStream::new());
     }
     let scope_lifetime = &GenericParam::Lifetime(LifetimeParam {
         lifetime: Lifetime::new("'scope", Span::call_site()),
@@ -376,10 +378,11 @@ fn gen_scope_output(
     let scope_fields = scope_input_attr
         .iter()
         .map(|a| {
-            a.parse_args_with(parse_scope_field)
-                .expect("Unable to parse scope field.")
+            a.parse_args_with(parse_scope_field).map_err(|e| {
+                error::combine(syn::Error::new(a.span(), "Unable to parse scope field."), e)
+            })
         })
-        .collect::<Vec<_>>();
+        .collect::<syn::Result<Vec<_>>>()?;
     let grouped_fields = group_by(scope_fields.iter(), |k| {
         k.ident.as_ref().map(|i| i.to_string())
     });
@@ -450,7 +453,7 @@ fn gen_scope_output(
             #(#input_provide_outputs)*
         }
     });
-    quote! {#(#scope_outputs)*}
+    Ok(quote! {#(#scope_outputs)*})
 }
 
 // Groups the items by a key.

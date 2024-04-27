@@ -1,9 +1,9 @@
-use crate::core::{DeriveInput, FactoryExpr};
+use crate::core::{error, DeriveInput, FactoryExpr};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input, Expr, PatType, Token,
+    Error, Expr, PatType, Token,
 };
 
 struct InjectExpr(Box<Expr>, Vec<PatType>);
@@ -18,9 +18,11 @@ impl Parse for InjectExpr {
     }
 }
 
-pub(crate) fn handle_inject(item: TokenStream, attr: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as DeriveInput);
-    let attributes: InjectExpr = syn::parse(attr).expect("Unable to parse inject attributes.");
+pub(crate) fn handle_inject(item: TokenStream, attr: TokenStream) -> syn::Result<TokenStream> {
+    let input = syn::parse::<DeriveInput>(item)?;
+    let attributes: InjectExpr = syn::parse(attr).map_err(|e| {
+        error::combine(Error::new(e.span(), "Unable to parse inject attribute."), e)
+    })?;
     let ident = &input.ident;
     let generic_params = input.generic_params();
     let generic_keys = input.generic_keys();
@@ -61,5 +63,5 @@ pub(crate) fn handle_inject(item: TokenStream, attr: TokenStream) -> TokenStream
             }
         }
     };
-    output.into()
+    Ok(output.into())
 }

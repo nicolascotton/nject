@@ -1,4 +1,5 @@
 pub mod encoding;
+pub mod error;
 pub mod hash;
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};

@@ -49,7 +49,7 @@ pub fn scope_helper_attr(_item: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_attribute]
 pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    handle_injectable(item)
+    handle_injectable(item).unwrap_or_else(|e| e.to_compile_error().into())
 }
 
 /// Use the given value to inject.
@@ -74,7 +74,7 @@ pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_attribute]
 pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
-    handle_inject(item, attr)
+    handle_inject(item, attr).unwrap_or_else(|e| e.to_compile_error().into())
 }
 
 /// Provide a value for a specific type.
@@ -105,7 +105,7 @@ pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_attribute]
 pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    handle_provider(item)
+    handle_provider(item).unwrap_or_else(|e| e.to_compile_error().into())
 }
 
 /// Declare a module to export internal types.
@@ -159,5 +159,5 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_attribute]
 pub fn module(attr: TokenStream, item: TokenStream) -> TokenStream {
-    handle_module(attr, item)
+    handle_module(attr, item).unwrap_or_else(|e| e.to_compile_error().into())
 }

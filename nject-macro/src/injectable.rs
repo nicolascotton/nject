@@ -1,9 +1,10 @@
-use crate::core::{DeriveInput, FactoryExpr};
+use crate::core::{error, DeriveInput, FactoryExpr};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input, Expr, PatType, Token,
+    spanned::Spanned,
+    Expr, PatType, Token,
 };
 
 struct InjectExpr(Box<Expr>, Vec<PatType>);
@@ -18,8 +19,8 @@ impl Parse for InjectExpr {
     }
 }
 
-pub(crate) fn handle_injectable(item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as DeriveInput);
+pub(crate) fn handle_injectable(item: TokenStream) -> syn::Result<TokenStream> {
+    let input = syn::parse::<DeriveInput>(item)?;
     let ident = &input.ident;
     let fields = input.fields();
     let types = input.field_types();
@@ -27,16 +28,22 @@ pub(crate) fn handle_injectable(item: TokenStream) -> TokenStream {
     let attributes = fields
         .iter()
         .map(|f| {
-            f.attrs
+            let Some(attr) = f
+                .attrs
                 .iter()
                 .filter(|a| a.path().is_ident("inject"))
                 .last()
-                .map(|a| {
-                    a.parse_args::<InjectExpr>()
-                        .expect("Unable to parse field attribute")
-                })
+            else {
+                return Ok(None);
+            };
+            attr.parse_args::<InjectExpr>().map(Some).map_err(|e| {
+                error::combine(
+                    syn::Error::new(attr.span(), "Unable to parse inject attribute"),
+                    e,
+                )
+            })
         })
-        .collect::<Vec<_>>();
+        .collect::<syn::Result<Vec<_>>>()?;
     let generic_params = input.generic_params();
     let generic_keys = input.generic_keys();
     let lifetime_keys = input.lifetime_keys();
@@ -123,5 +130,5 @@ pub(crate) fn handle_injectable(item: TokenStream) -> TokenStream {
             }
         }
     };
-    output.into()
+    Ok(output.into())
 }
