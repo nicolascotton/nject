@@ -125,7 +125,7 @@ pub(crate) fn handle_provider(
         #input
 
         impl<'prov, #(#generic_params,)*Njecty> nject::Provider<'prov, Njecty> for #ident<#(#generic_keys),*>
-            where Njecty: nject::Injectable<'prov, Njecty, #ident<#(#generic_keys),*>>,#where_predicates
+            where Njecty: nject::Injectable<'prov, Njecty, #ident<#(#generic_keys),*>>, #where_predicates
         {
             #[inline]
             fn provide(&'prov self) -> Njecty {
@@ -194,7 +194,7 @@ fn gen_imports_for_import_attr(
         let imported_type_output = exported_types.iter().map(|ty| {
             quote!{
 
-                impl<'prov#(,#generic_params)*> nject::Provider<'prov, #ty> for #ident<#(#generic_keys),*>
+                impl<'prov, #(#generic_params),*> nject::Provider<'prov, #ty> for #ident<#(#generic_keys),*>
                     where #where_predicates
                 {
                     #[inline]
@@ -285,7 +285,7 @@ fn gen_providers_for_provide_attr_on_fields(
 
             quote! {
 
-                impl<'prov#(,#generic_params)*> nject::Provider<'prov, #ty> for #ident<#(#generic_keys),*>
+                impl<'prov, #(#generic_params),*> nject::Provider<'prov, #ty> for #ident<#(#generic_keys),*>
                     where #where_predicates
                 {
                     #[inline]
@@ -436,7 +436,7 @@ fn gen_scope_output(
                 where #where_predicates
             {
                 #[inline]
-                pub fn #scope_fn_ident<'scope>(&'scope self #(,#scope_args)*) -> #scope_ident<#(#scope_generic_keys),*>
+                pub fn #scope_fn_ident<'scope>(&'scope self, #(#scope_args),*) -> #scope_ident<#(#scope_generic_keys),*>
                 {
                     #scope_ident(#(#scope_field_provides,)* self)
                 }
