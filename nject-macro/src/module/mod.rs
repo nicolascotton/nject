@@ -113,7 +113,7 @@ pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> syn::Result
                 impl<'prov, #(#generic_params,)*NjectProvider> nject::RefInjectable<'prov, #ty, NjectProvider> for #ident<#(#generic_keys),*>
                     where
                         #prov_lifetimes
-                        NjectProvider: #(nject::Provider<'prov, #prov_types>)+*,#where_predicates
+                        NjectProvider: #(nject::Provider<'prov, #prov_types>)+*, #where_predicates
                 {
                     #[inline]
                     fn inject(&'prov self, provider: &'prov NjectProvider) -> #ty {
@@ -181,7 +181,7 @@ pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> syn::Result
                 impl<'prov, #(#generic_params,)*NjectProvider> nject::Injectable<'prov, #ty, NjectProvider> for #ty
                     where
                         #prov_lifetimes
-                        NjectProvider: nject::Import<#ident<#(#generic_keys),*>>,#where_predicates
+                        NjectProvider: nject::Import<#ident<#(#generic_keys),*>>, #where_predicates
                 {
                     #[inline]
                     fn inject(provider: &'prov NjectProvider) -> #ty {
