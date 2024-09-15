@@ -1,17 +1,35 @@
 use super::*;
+use impl_test::*;
 use nject::{injectable, module, provider};
 use test::Bencher;
 
-type ImplDepTrait1 = impl DepTrait1;
-type ImplDepTrait2 = impl DepTrait2;
-type ImplDepTrait3 = impl DepTrait3;
-type ImplDepTrait4 = impl DepTrait4;
-type ImplDepTrait5 = impl DepTrait5;
-type ImplDepTrait6 = impl DepTrait6;
-type ImplDepTrait7 = impl DepTrait7;
-type ImplDepTrait8 = impl DepTrait8;
-type ImplDepTrait9 = impl DepTrait9;
-type ImplDepTrait10 = impl DepTrait10;
+mod impl_test {
+    use super::*;
+    pub type ImplDepTrait1 = impl DepTrait1;
+    pub type ImplDepTrait2 = impl DepTrait2;
+    pub type ImplDepTrait3 = impl DepTrait3;
+    pub type ImplDepTrait4 = impl DepTrait4;
+    pub type ImplDepTrait5 = impl DepTrait5;
+    pub type ImplDepTrait6 = impl DepTrait6;
+    pub type ImplDepTrait7 = impl DepTrait7;
+    pub type ImplDepTrait8 = impl DepTrait8;
+    pub type ImplDepTrait9 = impl DepTrait9;
+    pub type ImplDepTrait10 = impl DepTrait10;
+
+    #[injectable]
+    #[module(self::impl_test::Self)]
+    #[export(&'prov ImplDepTrait1, &self.0)]
+    #[export(&'prov ImplDepTrait2, &self.1)]
+    #[export(&'prov ImplDepTrait3, &self.2)]
+    #[export(&'prov ImplDepTrait4, &self.3)]
+    #[export(&'prov ImplDepTrait5, &self.4)]
+    #[export(&'prov ImplDepTrait6, &self.5)]
+    #[export(&'prov ImplDepTrait7, &self.6)]
+    #[export(&'prov ImplDepTrait8, &self.7)]
+    #[export(&'prov ImplDepTrait9, &self.8)]
+    #[export(&'prov ImplDepTrait10, &self.9)]
+    pub struct ModuleImpl(Dep1, Dep2, Dep3, Dep4, Dep5, Dep6, Dep7, Dep8, Dep9, Dep10);
+}
 
 #[provider]
 struct Provider;
@@ -45,20 +63,6 @@ struct ModuleDyn(
     #[export(dyn DepTrait9)] Dep9,
     #[export(dyn DepTrait10)] Dep10,
 );
-
-#[injectable]
-#[module(self::Self)]
-#[export(&'prov ImplDepTrait1, &self.0)]
-#[export(&'prov ImplDepTrait2, &self.1)]
-#[export(&'prov ImplDepTrait3, &self.2)]
-#[export(&'prov ImplDepTrait4, &self.3)]
-#[export(&'prov ImplDepTrait5, &self.4)]
-#[export(&'prov ImplDepTrait6, &self.5)]
-#[export(&'prov ImplDepTrait7, &self.6)]
-#[export(&'prov ImplDepTrait8, &self.7)]
-#[export(&'prov ImplDepTrait9, &self.8)]
-#[export(&'prov ImplDepTrait10, &self.9)]
-struct ModuleImpl(Dep1, Dep2, Dep3, Dep4, Dep5, Dep6, Dep7, Dep8, Dep9, Dep10);
 
 #[injectable]
 #[provider]
@@ -110,7 +114,7 @@ fn by_ref_dyn_from_module(b: &mut Bencher) {
 fn by_ref_impl_from_module(b: &mut Bencher) {
     #[injectable]
     #[provider]
-    struct ImplProvider(#[import] self::ModuleImpl);
+    struct ImplProvider(#[import] self::impl_test::ModuleImpl);
 
     let provider = Provider.provide::<ImplProvider>();
     b.iter(move || {
