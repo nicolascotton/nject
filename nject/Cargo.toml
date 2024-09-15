@@ -1,6 +1,6 @@
 [package]
 name = "nject"
-version = "0.4.3"
+version = "0.4.4"
 edition = "2021"
 description = "Zero cost dependency injection module"
 rust-version = "1.60"
@@ -13,7 +13,7 @@ repository = "https://github.com/nicolascotton/nject"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nject-macro = { path = "../nject-macro", version = "0.4.3", optional = true }
+nject-macro = { path = "../nject-macro", version = "0.4.4", optional = true }
 
 [features]
 default = ["macro"]
