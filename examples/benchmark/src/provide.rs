@@ -2,17 +2,6 @@ use super::*;
 use nject::{injectable, provider};
 use test::Bencher;
 
-type ImplDepTrait1 = impl DepTrait1;
-type ImplDepTrait2 = impl DepTrait2;
-type ImplDepTrait3 = impl DepTrait3;
-type ImplDepTrait4 = impl DepTrait4;
-type ImplDepTrait5 = impl DepTrait5;
-type ImplDepTrait6 = impl DepTrait6;
-type ImplDepTrait7 = impl DepTrait7;
-type ImplDepTrait8 = impl DepTrait8;
-type ImplDepTrait9 = impl DepTrait9;
-type ImplDepTrait10 = impl DepTrait10;
-
 #[provider]
 struct Provider;
 
@@ -44,21 +33,6 @@ struct DynProvider(
     #[provide(dyn DepTrait8)] Dep8,
     #[provide(dyn DepTrait9)] Dep9,
     #[provide(dyn DepTrait10)] Dep10,
-);
-
-#[provider]
-#[injectable]
-struct ImplProvider(
-    #[provide(ImplDepTrait1)] Dep1,
-    #[provide(ImplDepTrait2)] Dep2,
-    #[provide(ImplDepTrait3)] Dep3,
-    #[provide(ImplDepTrait4)] Dep4,
-    #[provide(ImplDepTrait5)] Dep5,
-    #[provide(ImplDepTrait6)] Dep6,
-    #[provide(ImplDepTrait7)] Dep7,
-    #[provide(ImplDepTrait8)] Dep8,
-    #[provide(ImplDepTrait9)] Dep9,
-    #[provide(ImplDepTrait10)] Dep10,
 );
 
 #[bench]
@@ -119,27 +93,6 @@ fn by_ref_dyn(b: &mut Bencher) {
                 provider.provide::<&dyn DepTrait8>(),
                 provider.provide::<&dyn DepTrait9>(),
                 provider.provide::<&dyn DepTrait10>(),
-            ));
-        }
-    });
-}
-
-#[bench]
-fn by_ref_impl(b: &mut Bencher) {
-    let provider = Provider.provide::<ImplProvider>();
-    b.iter(move || {
-        for _ in 0..ITERATION_COUNT {
-            test::black_box((
-                provider.provide::<&ImplDepTrait1>(),
-                provider.provide::<&ImplDepTrait2>(),
-                provider.provide::<&ImplDepTrait3>(),
-                provider.provide::<&ImplDepTrait4>(),
-                provider.provide::<&ImplDepTrait5>(),
-                provider.provide::<&ImplDepTrait6>(),
-                provider.provide::<&ImplDepTrait7>(),
-                provider.provide::<&ImplDepTrait8>(),
-                provider.provide::<&ImplDepTrait9>(),
-                provider.provide::<&ImplDepTrait10>(),
             ));
         }
     });
