@@ -30,12 +30,7 @@ fn init_cache() -> HashMap<ModuleKey, Module> {
             let file_path = file.path();
             if let Ok(file) = std::fs::File::open(&file_path) {
                 let lines = std::io::BufReader::new(file).lines();
-                let lines = lines
-                    .filter_map(|l| match l {
-                        Ok(g) => Some(g),
-                        Err(_) => None,
-                    })
-                    .collect::<Vec<String>>();
+                let lines = lines.map_while(Result::ok).collect::<Vec<String>>();
                 let crate_name = lines.first().expect("Missing crate name field").to_owned();
                 let bin_name = lines.get(1).expect("Missing bin name field").to_owned();
                 let path = lines.get(2).expect("Missing path field").to_owned();

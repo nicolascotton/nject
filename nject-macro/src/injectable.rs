@@ -32,7 +32,7 @@ pub(crate) fn handle_injectable(item: TokenStream) -> syn::Result<TokenStream> {
                 .attrs
                 .iter()
                 .filter(|a| a.path().is_ident("inject"))
-                .last()
+                .next_back()
             else {
                 return Ok(None);
             };

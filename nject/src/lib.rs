@@ -101,6 +101,19 @@ pub trait Import<Module> {
 }
 
 /// For internal purposes only. Should not be used.
+#[doc(hidden)]
 pub trait RefInjectable<'prov, Value, Provider> {
     fn inject(&'prov self, provider: &'prov Provider) -> Value;
+}
+
+/// For internal purposes only. Should not be used.
+#[doc(hidden)]
+pub trait RefIterable<'prov, Value, Provider> {
+    fn inject(&'prov self, provider: &'prov Provider, index: usize) -> Value;
+}
+
+/// For internal purposes only. Should not be used.
+#[doc(hidden)]
+pub trait Iterable<'prov, T> {
+    fn iter(&'prov self) -> impl Iterator<Item = T>;
 }

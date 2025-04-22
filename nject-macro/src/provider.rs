@@ -1,7 +1,6 @@
-use crate::core::{error, DeriveInput, FactoryExpr, FieldFactoryExpr};
+use crate::core::{collection::group_by, error, DeriveInput, FactoryExpr, FieldFactoryExpr};
 use proc_macro2::Span;
 use quote::{format_ident, quote};
-use std::collections::HashMap;
 use syn::{
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
@@ -50,7 +49,7 @@ pub(crate) fn handle_provider(
             f.attrs
                 .iter()
                 .filter(|a| a.path().is_ident("import"))
-                .last()
+                .next_back()
                 .map(|_| i)
         })
         .collect::<Vec<_>>();
@@ -125,7 +124,7 @@ pub(crate) fn handle_provider(
         #input
 
         impl<'prov, #(#generic_params,)*Njecty> nject::Provider<'prov, Njecty> for #ident<#(#generic_keys),*>
-            where Njecty: nject::Injectable<'prov, Njecty, #ident<#(#generic_keys),*>>, #where_predicates
+        where Njecty: nject::Injectable<'prov, Njecty, #ident<#(#generic_keys),*>>, #where_predicates
         {
             #[inline]
             fn provide(&'prov self) -> Njecty {
@@ -134,7 +133,7 @@ pub(crate) fn handle_provider(
         }
 
         impl<'prov, #(#generic_params,)*Njecty> nject::Provider<'prov, &'prov dyn nject::Provider<'prov, Njecty>> for #ident<#(#generic_keys),*>
-            where Self: nject::Provider<'prov, Njecty>, #where_predicates
+        where Self: nject::Provider<'prov, Njecty>, #where_predicates
         {
             #[inline]
             fn provide(&'prov self) -> &'prov dyn nject::Provider<'prov, Njecty> {
@@ -143,13 +142,24 @@ pub(crate) fn handle_provider(
         }
 
         impl<#(#generic_params),*> #ident<#(#generic_keys),*>
-            where #where_predicates
+        where #where_predicates
         {
             #[inline]
             pub fn provide<'prov, Njecty>(&'prov self) -> Njecty
-                where Self: nject::Provider<'prov, Njecty>
+            where Self: nject::Provider<'prov, Njecty>
             {
                 <Self as nject::Provider<'prov, Njecty>>::provide(self)
+            }
+        }
+
+        impl<#(#generic_params),*> #ident<#(#generic_keys),*>
+        where #where_predicates
+        {
+            #[inline]
+            pub fn iter<'prov, Value>(&'prov self) -> impl Iterator<Item = Value> + use<'prov #(,#generic_keys)*, Value>
+            where Self: nject::Iterable<'prov, Value>
+            {
+                nject::Iterable::<'prov, Value>::iter(self)
             }
         }
         #(#import_outputs)*
@@ -170,8 +180,94 @@ fn gen_imports_for_import_attr(
     fields: &[&syn::Field],
     import_attr_indexes: &[usize],
 ) -> Vec<proc_macro2::TokenStream> {
-    let import_outputs = import_attr_indexes.iter().map(|i| {
-        let field = fields[*i];
+    let imported_modules = import_attr_indexes
+        .iter()
+        .map(|i| {
+            let field = fields[*i];
+            let ty = &field.ty;
+            let import_key = super::module::models::ModuleKey::from(ty);
+            let import = super::module::repository::get(&import_key);
+            let index = syn::Index::from(*i);
+            let field_key = match &field.ident {
+                Some(i) => quote! { #i },
+                None => quote! { #index },
+            };
+            (import, field_key, field)
+        })
+        .collect::<Vec<_>>();
+    let exported_types = imported_modules.iter().flat_map(|(module, field_key, _)| {
+        module
+            .as_ref()
+            .map(|m| {
+                m.exported_types()
+                    .iter()
+                    .map(|t| (m.to_owned(), t.to_owned()))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+            .iter()
+            .map(|(m, t)| (m.to_owned(), t.to_owned(), field_key))
+            .collect::<Vec<_>>()
+    });
+    let exported_types = group_by(exported_types, |(_, t, _)| quote! { #t }.to_string());
+    let import_iter_outputs = exported_types.values().map(|types| {
+        let (_, ty, _) = types.first().unwrap();
+        let types_by_module = group_by(types.iter().enumerate(), |(_, (m, _, _))| {
+            m.key().unwrap()
+        });
+        let iter_match_outputs = types_by_module.iter().flat_map(|(_, types_for_module)| {
+            types_for_module.iter().enumerate().map(|(mod_index, (index, (_, ty, field_key)))| {
+                quote! { #index => nject::RefIterable::<#ty, #ident<#(#generic_keys),*>>::inject(&self.provider.#fields_path_prefix #field_key, self.provider, #mod_index), }
+            })
+        });
+        quote!{
+
+            impl<'prov, #(#generic_params),*> nject::Iterable<'prov, #ty> for #ident<#(#generic_keys),*>
+                where #where_predicates
+            {
+                #[inline]
+                fn iter(&'prov self) -> impl Iterator<Item = #ty> {
+                    struct NjectIterator<'prov, #(#generic_params),*> {
+                        provider: &'prov #ident<#(#generic_keys),*>,
+                        index: usize,
+                    }
+                    impl<'prov, #(#generic_params),*> Iterator for NjectIterator<'prov, #(#generic_keys),*> {
+                        type Item = #ty;
+
+                        fn next(&mut self) -> Option<Self::Item> {
+                            let result = match self.index {
+                                #( #iter_match_outputs )*
+                                _ => {
+                                    return None;
+                                }
+                            };
+                            self.index += 1;
+                            Some(result)
+                        }
+                    }
+                    NjectIterator {
+                        provider: self,
+                        index: 0,
+                    }
+                }
+            }
+        }
+    });
+    let import_prov_outputs = exported_types.values().map(|types| {
+        let (_, ty, field_key) = types.last().unwrap();
+        quote!{
+
+            impl<'prov, #(#generic_params),*> nject::Provider<'prov, #ty> for #ident<#(#generic_keys),*>
+                where #where_predicates
+            {
+                #[inline]
+                fn provide(&'prov self) -> #ty {
+                    nject::RefInjectable::<#ty, Self>::inject(&self.#fields_path_prefix #field_key, self)
+                }
+            }
+        }
+    });
+    let import_impl_outputs = imported_modules.iter().map(|(_, field_key, field)| {
         let ty = &field.ty;
         let ty_output = match ty {
             Type::Reference(r) => {
@@ -180,31 +276,6 @@ fn gen_imports_for_import_attr(
             }
             _ => quote! { #ty },
         };
-        let index = syn::Index::from(*i);
-        let field_key = match &field.ident {
-            Some(i) => quote! { #i },
-            None => quote! { #index },
-        };
-        let import_key = super::module::models::ModuleKey::from(ty);
-        let import = super::module::repository::get(&import_key);
-        let exported_types = match import {
-            Some(i) => i.exported_types(),
-            None => vec![]
-        };
-        let imported_type_output = exported_types.iter().map(|ty| {
-            quote!{
-
-                impl<'prov, #(#generic_params),*> nject::Provider<'prov, #ty> for #ident<#(#generic_keys),*>
-                    where #where_predicates
-                {
-                    #[inline]
-                    fn provide(&'prov self) -> #ty {
-                        nject::RefInjectable::<#ty, Self>::inject(&self.#fields_path_prefix #field_key, self)
-                    }
-                }
-            }
-        });
-
         quote! {
 
             impl<#(#generic_params),*> nject::Import<#ty_output> for #ident<#(#generic_keys),*>
@@ -215,11 +286,12 @@ fn gen_imports_for_import_attr(
                     &self.#fields_path_prefix #field_key
                 }
             }
-
-            #(#imported_type_output)*
         }
     });
-    import_outputs.collect()
+    import_impl_outputs
+        .chain(import_prov_outputs)
+        .chain(import_iter_outputs)
+        .collect()
 }
 
 fn gen_providers_for_provide_attr_on_fields(
@@ -399,7 +471,7 @@ fn gen_scope_output(
         .map(|f| f.attrs.iter().filter(|a| match &a.meta {
             syn::Meta::Path(p) => p.is_ident("arg"),
             _ => false,
-        }).last().is_some()).collect::<Vec<_>>();
+        }).next_back().is_some()).collect::<Vec<_>>();
         let scope_field_outputs = scope_fields.iter().map(|f| {
             let mut f = f.to_owned().to_owned();
             f.ident = None;
@@ -454,20 +526,6 @@ fn gen_scope_output(
         }
     });
     Ok(quote! {#(#scope_outputs)*})
-}
-
-// Groups the items by a key.
-fn group_by<T, K, F>(iter: impl Iterator<Item = T>, key: F) -> HashMap<K, Vec<T>>
-where
-    F: Fn(&T) -> K,
-    K: std::hash::Hash + Eq,
-{
-    let mut map = HashMap::new();
-    for item in iter {
-        let k = key(&item);
-        map.entry(k).or_insert_with(Vec::new).push(item);
-    }
-    map
 }
 
 // Converts a snake case string to a pascal case string
