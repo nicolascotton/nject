@@ -458,7 +458,7 @@ fn gen_scope_output(
     let grouped_fields = group_by(scope_fields.iter(), |k| {
         k.ident.as_ref().map(|i| i.to_string())
     });
-    let scope_outputs = grouped_fields.iter().map(|(scope_name, scope_fields)|{
+    let scope_outputs = grouped_fields.iter().map(|(scope_name, scope_fields)| {
         let scope_ident = match scope_name {
             Some(n) => format_ident!("{}{}Scope", ident, snake_to_pascal(n)),
             None => format_ident!("{ident}Scope"),
@@ -467,11 +467,11 @@ fn gen_scope_output(
             Some(n) => format_ident!("{n}_scope"),
             None => format_ident!("scope"),
         };
-    let arg_scope_fields =  scope_fields.iter()
-        .map(|f| f.attrs.iter().filter(|a| match &a.meta {
-            syn::Meta::Path(p) => p.is_ident("arg"),
-            _ => false,
-        }).next_back().is_some()).collect::<Vec<_>>();
+        let arg_scope_fields =  scope_fields.iter()
+            .map(|f| f.attrs.iter().filter(|a| match &a.meta {
+                syn::Meta::Path(p) => p.is_ident("arg"),
+                _ => false,
+            }).next_back().is_some()).collect::<Vec<_>>();
         let scope_field_outputs = scope_fields.iter().map(|f| {
             let mut f = f.to_owned().to_owned();
             f.ident = None;
