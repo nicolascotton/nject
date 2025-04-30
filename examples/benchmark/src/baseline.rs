@@ -2048,3 +2048,421 @@ fn by_ref_from_scope_root(b: &mut Bencher) {
         }
     });
 }
+
+#[bench]
+fn iter_by_value(b: &mut Bencher) {
+    let provider: [MultiDep; 10] = [
+        MultiDep(1),
+        MultiDep(2),
+        MultiDep(3),
+        MultiDep(4),
+        MultiDep(5),
+        MultiDep(6),
+        MultiDep(7),
+        MultiDep(8),
+        MultiDep(9),
+        MultiDep(10),
+    ];
+    b.iter(|| {
+        for _ in 0..ITERATION_COUNT {
+            test::black_box(for x in &provider {
+                let _ = x;
+            });
+        }
+    });
+}
+
+#[bench]
+fn iter_by_dyn_ref(b: &mut Bencher) {
+    let provider: [&dyn MultiTrait; 10] = [
+        &Dep1(123),
+        &Dep2(Dep1(123)),
+        &Dep3(Dep1(123), Dep2(Dep1(123))),
+        &Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+        &Dep5(
+            Dep1(123),
+            Dep2(Dep1(123)),
+            Dep3(Dep1(123), Dep2(Dep1(123))),
+            Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+        ),
+        &Dep6(
+            Dep1(123),
+            Dep2(Dep1(123)),
+            Dep3(Dep1(123), Dep2(Dep1(123))),
+            Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+            Dep5(
+                Dep1(123),
+                Dep2(Dep1(123)),
+                Dep3(Dep1(123), Dep2(Dep1(123))),
+                Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+            ),
+        ),
+        &Dep7(
+            Dep1(123),
+            Dep2(Dep1(123)),
+            Dep3(Dep1(123), Dep2(Dep1(123))),
+            Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+            Dep5(
+                Dep1(123),
+                Dep2(Dep1(123)),
+                Dep3(Dep1(123), Dep2(Dep1(123))),
+                Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+            ),
+            Dep6(
+                Dep1(123),
+                Dep2(Dep1(123)),
+                Dep3(Dep1(123), Dep2(Dep1(123))),
+                Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                Dep5(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                ),
+            ),
+        ),
+        &Dep8(
+            Dep1(123),
+            Dep2(Dep1(123)),
+            Dep3(Dep1(123), Dep2(Dep1(123))),
+            Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+            Dep5(
+                Dep1(123),
+                Dep2(Dep1(123)),
+                Dep3(Dep1(123), Dep2(Dep1(123))),
+                Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+            ),
+            Dep6(
+                Dep1(123),
+                Dep2(Dep1(123)),
+                Dep3(Dep1(123), Dep2(Dep1(123))),
+                Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                Dep5(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                ),
+            ),
+            Dep7(
+                Dep1(123),
+                Dep2(Dep1(123)),
+                Dep3(Dep1(123), Dep2(Dep1(123))),
+                Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                Dep5(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                ),
+                Dep6(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    Dep5(
+                        Dep1(123),
+                        Dep2(Dep1(123)),
+                        Dep3(Dep1(123), Dep2(Dep1(123))),
+                        Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    ),
+                ),
+            ),
+        ),
+        &Dep9(
+            Dep1(123),
+            Dep2(Dep1(123)),
+            Dep3(Dep1(123), Dep2(Dep1(123))),
+            Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+            Dep5(
+                Dep1(123),
+                Dep2(Dep1(123)),
+                Dep3(Dep1(123), Dep2(Dep1(123))),
+                Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+            ),
+            Dep6(
+                Dep1(123),
+                Dep2(Dep1(123)),
+                Dep3(Dep1(123), Dep2(Dep1(123))),
+                Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                Dep5(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                ),
+            ),
+            Dep7(
+                Dep1(123),
+                Dep2(Dep1(123)),
+                Dep3(Dep1(123), Dep2(Dep1(123))),
+                Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                Dep5(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                ),
+                Dep6(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    Dep5(
+                        Dep1(123),
+                        Dep2(Dep1(123)),
+                        Dep3(Dep1(123), Dep2(Dep1(123))),
+                        Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    ),
+                ),
+            ),
+            Dep8(
+                Dep1(123),
+                Dep2(Dep1(123)),
+                Dep3(Dep1(123), Dep2(Dep1(123))),
+                Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                Dep5(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                ),
+                Dep6(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    Dep5(
+                        Dep1(123),
+                        Dep2(Dep1(123)),
+                        Dep3(Dep1(123), Dep2(Dep1(123))),
+                        Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    ),
+                ),
+                Dep7(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    Dep5(
+                        Dep1(123),
+                        Dep2(Dep1(123)),
+                        Dep3(Dep1(123), Dep2(Dep1(123))),
+                        Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    ),
+                    Dep6(
+                        Dep1(123),
+                        Dep2(Dep1(123)),
+                        Dep3(Dep1(123), Dep2(Dep1(123))),
+                        Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                        Dep5(
+                            Dep1(123),
+                            Dep2(Dep1(123)),
+                            Dep3(Dep1(123), Dep2(Dep1(123))),
+                            Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+        &Dep10(
+            Dep1(123),
+            Dep2(Dep1(123)),
+            Dep3(Dep1(123), Dep2(Dep1(123))),
+            Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+            Dep5(
+                Dep1(123),
+                Dep2(Dep1(123)),
+                Dep3(Dep1(123), Dep2(Dep1(123))),
+                Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+            ),
+            Dep6(
+                Dep1(123),
+                Dep2(Dep1(123)),
+                Dep3(Dep1(123), Dep2(Dep1(123))),
+                Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                Dep5(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                ),
+            ),
+            Dep7(
+                Dep1(123),
+                Dep2(Dep1(123)),
+                Dep3(Dep1(123), Dep2(Dep1(123))),
+                Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                Dep5(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                ),
+                Dep6(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    Dep5(
+                        Dep1(123),
+                        Dep2(Dep1(123)),
+                        Dep3(Dep1(123), Dep2(Dep1(123))),
+                        Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    ),
+                ),
+            ),
+            Dep8(
+                Dep1(123),
+                Dep2(Dep1(123)),
+                Dep3(Dep1(123), Dep2(Dep1(123))),
+                Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                Dep5(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                ),
+                Dep6(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    Dep5(
+                        Dep1(123),
+                        Dep2(Dep1(123)),
+                        Dep3(Dep1(123), Dep2(Dep1(123))),
+                        Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    ),
+                ),
+                Dep7(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    Dep5(
+                        Dep1(123),
+                        Dep2(Dep1(123)),
+                        Dep3(Dep1(123), Dep2(Dep1(123))),
+                        Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    ),
+                    Dep6(
+                        Dep1(123),
+                        Dep2(Dep1(123)),
+                        Dep3(Dep1(123), Dep2(Dep1(123))),
+                        Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                        Dep5(
+                            Dep1(123),
+                            Dep2(Dep1(123)),
+                            Dep3(Dep1(123), Dep2(Dep1(123))),
+                            Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                        ),
+                    ),
+                ),
+            ),
+            Dep9(
+                Dep1(123),
+                Dep2(Dep1(123)),
+                Dep3(Dep1(123), Dep2(Dep1(123))),
+                Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                Dep5(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                ),
+                Dep6(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    Dep5(
+                        Dep1(123),
+                        Dep2(Dep1(123)),
+                        Dep3(Dep1(123), Dep2(Dep1(123))),
+                        Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    ),
+                ),
+                Dep7(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    Dep5(
+                        Dep1(123),
+                        Dep2(Dep1(123)),
+                        Dep3(Dep1(123), Dep2(Dep1(123))),
+                        Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    ),
+                    Dep6(
+                        Dep1(123),
+                        Dep2(Dep1(123)),
+                        Dep3(Dep1(123), Dep2(Dep1(123))),
+                        Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                        Dep5(
+                            Dep1(123),
+                            Dep2(Dep1(123)),
+                            Dep3(Dep1(123), Dep2(Dep1(123))),
+                            Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                        ),
+                    ),
+                ),
+                Dep8(
+                    Dep1(123),
+                    Dep2(Dep1(123)),
+                    Dep3(Dep1(123), Dep2(Dep1(123))),
+                    Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    Dep5(
+                        Dep1(123),
+                        Dep2(Dep1(123)),
+                        Dep3(Dep1(123), Dep2(Dep1(123))),
+                        Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                    ),
+                    Dep6(
+                        Dep1(123),
+                        Dep2(Dep1(123)),
+                        Dep3(Dep1(123), Dep2(Dep1(123))),
+                        Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                        Dep5(
+                            Dep1(123),
+                            Dep2(Dep1(123)),
+                            Dep3(Dep1(123), Dep2(Dep1(123))),
+                            Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                        ),
+                    ),
+                    Dep7(
+                        Dep1(123),
+                        Dep2(Dep1(123)),
+                        Dep3(Dep1(123), Dep2(Dep1(123))),
+                        Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                        Dep5(
+                            Dep1(123),
+                            Dep2(Dep1(123)),
+                            Dep3(Dep1(123), Dep2(Dep1(123))),
+                            Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                        ),
+                        Dep6(
+                            Dep1(123),
+                            Dep2(Dep1(123)),
+                            Dep3(Dep1(123), Dep2(Dep1(123))),
+                            Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                            Dep5(
+                                Dep1(123),
+                                Dep2(Dep1(123)),
+                                Dep3(Dep1(123), Dep2(Dep1(123))),
+                                Dep4(Dep1(123), Dep2(Dep1(123)), Dep3(Dep1(123), Dep2(Dep1(123)))),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    ];
+    b.iter(|| {
+        for _ in 0..ITERATION_COUNT {
+            test::black_box(for x in provider {
+                let _ = x;
+            });
+        }
+    });
+}
