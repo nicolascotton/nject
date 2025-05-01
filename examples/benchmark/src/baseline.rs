@@ -2466,3 +2466,35 @@ fn iter_by_dyn_ref(b: &mut Bencher) {
         }
     });
 }
+
+#[bench]
+fn by_value_from_multiple(b: &mut Bencher) {
+    b.iter(move || {
+        for _ in 0..ITERATION_COUNT {
+            test::black_box((
+                MultiDep(10),
+                MultiDep(10),
+                MultiDep(10),
+                MultiDep(10),
+                MultiDep(10),
+                MultiDep(10),
+                MultiDep(10),
+                MultiDep(10),
+                MultiDep(10),
+                MultiDep(10),
+            ));
+        }
+    });
+}
+
+#[bench]
+fn by_ref_dyn_from_multiple(b: &mut Bencher) {
+    let value: &dyn MultiTrait = &Dep1(10);
+    b.iter(move || {
+        for _ in 0..ITERATION_COUNT {
+            test::black_box((
+                value, value, value, value, value, value, value, value, value, value,
+            ));
+        }
+    });
+}
