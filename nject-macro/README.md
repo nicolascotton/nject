@@ -359,7 +359,7 @@ fn main() {
 1. Requires `cargo` to build. Run `cargo clean -p nject-macro` to clean the cache if it ever gets corrupted.
 1. Generic parameters are not supported on modules.
 
-### Use modules to export multiple implementations under a public type
+### Use modules to export multiple implementations for a public type
 ```rust
 use nject::{injectable, provider};
 
