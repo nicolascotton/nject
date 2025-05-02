@@ -1,9 +1,9 @@
 [package]
 name = "nject-macro"
 version = "0.4.4"
-edition = "2021"
+edition = "2024"
 description = "Zero cost dependency injection macros"
-rust-version = "1.60"
+rust-version = "1.85"
 homepage = "https://github.com/nicolascotton/nject"
 keywords = ["dependency", "injection", "dependency-injection", "ioc", "macro"]
 license = "MIT"

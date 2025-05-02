@@ -1,12 +1,12 @@
 pub mod models;
 pub mod repository;
-use crate::core::{collection::group_by, error, DeriveInput, FactoryExpr, FieldFactoryExpr};
+use crate::core::{DeriveInput, FactoryExpr, FieldFactoryExpr, collection::group_by, error};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
+    Expr, PatType, Path, Token, Type,
     parse::{Parse, ParseStream},
     spanned::Spanned,
-    Expr, PatType, Path, Token, Type,
 };
 
 #[derive(Clone)]

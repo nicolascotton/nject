@@ -1,6 +1,6 @@
-use actix_example::{setup_app, Provider};
-use actix_web::{web::Data, HttpServer};
-use sqlx::{query, Connection, SqliteConnection};
+use actix_example::{Provider, setup_app};
+use actix_web::{HttpServer, web::Data};
+use sqlx::{Connection, SqliteConnection, query};
 
 const DB_URL: &str = "file::memory:?cache=shared";
 

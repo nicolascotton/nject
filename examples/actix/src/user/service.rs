@@ -1,6 +1,7 @@
 use super::{
+    errors::Error,
     models::{CreateUser, User},
-    repository::UserRepository, errors::Error,
+    repository::UserRepository,
 };
 use nject::injectable;
 

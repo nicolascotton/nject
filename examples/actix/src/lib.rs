@@ -1,9 +1,9 @@
 mod user;
 use actix_web::{
+    App, Error,
     body::MessageBody,
     dev::{ServiceFactory, ServiceRequest, ServiceResponse},
     web::Data,
-    App, Error,
 };
 use nject::{injectable, provider};
 use user::{ConnectionOptions, UserModule};
@@ -36,12 +36,12 @@ pub fn setup_app(
     provider: Prov,
 ) -> App<
     impl ServiceFactory<
-            ServiceRequest,
-            Config = (),
-            Response = ServiceResponse<impl MessageBody>,
-            Error = Error,
-            InitError = (),
-        > + 'static,
+        ServiceRequest,
+        Config = (),
+        Response = ServiceResponse<impl MessageBody>,
+        Error = Error,
+        InitError = (),
+    > + 'static,
 > {
     App::new().app_data(provider).service(user::create_scope())
 }

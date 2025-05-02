@@ -1,7 +1,7 @@
 [package]
 name = "actix-example"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -9,4 +9,4 @@ edition = "2021"
 actix-web = "4"
 nject = { path = "../../nject" }
 serde = { version = "1", features = ["derive"] }
-sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio"] }
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"] }

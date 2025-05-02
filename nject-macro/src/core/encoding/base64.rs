@@ -3,7 +3,7 @@ pub fn encode(bytes: &[u8]) -> Vec<u8> {
     const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     const PADDING: u8 = b'=';
     let len = bytes.len();
-    let out_len = (len + 2) / 3 * 4;
+    let out_len = (len + 2).div_ceil(3) * 4;
     let mut out = Vec::with_capacity(out_len);
     for chunk in bytes.chunks(3) {
         // The first 6 bits of the first byte

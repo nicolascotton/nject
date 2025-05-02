@@ -1,6 +1,6 @@
 use super::service::counter_service;
 use super::store::counter_store;
-use leptos::{component, view, IntoView};
+use leptos::prelude::*;
 
 #[component]
 pub fn SimpleCounter() -> impl IntoView {

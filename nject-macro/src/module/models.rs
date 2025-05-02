@@ -1,5 +1,5 @@
 use crate::core::{extract_path_from_type, substitute_in_path, substitute_in_type};
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::{Ident, Path, PathSegment, Type};
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]

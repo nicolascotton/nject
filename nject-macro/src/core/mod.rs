@@ -3,15 +3,15 @@ pub mod encoding;
 pub mod error;
 pub mod hash;
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use std::path::PathBuf;
 use std::{ops::Deref, str::FromStr};
 use syn::Token;
 use syn::{
-    parse::{Parse, ParseStream},
-    spanned::Spanned,
     AngleBracketedGenericArguments, Expr, ExprClosure, Fields, GenericArgument, GenericParam,
     Ident, Pat, PatType, Path, PathSegment, Type,
+    parse::{Parse, ParseStream},
+    spanned::Spanned,
 };
 
 pub struct DeriveInput(syn::DeriveInput);
@@ -184,9 +184,9 @@ pub fn substitute_in_path(path: &mut Path, from: &str, to: &str) {
 /// Substitute an identity in generic arg recursively.
 pub fn substitute_in_type(ty: &mut Type, from: &str, to: &str) {
     match ty {
-        Type::Path(ref mut p) => substitute_in_path(&mut p.path, from, to),
-        Type::Reference(ref mut r) => substitute_in_type(&mut r.elem, from, to),
-        Type::TraitObject(ref mut t) => {
+        Type::Path(p) => substitute_in_path(&mut p.path, from, to),
+        Type::Reference(r) => substitute_in_type(&mut r.elem, from, to),
+        Type::TraitObject(t) => {
             for bound in &mut t.bounds {
                 if let syn::TypeParamBound::Trait(t) = bound {
                     substitute_in_path(&mut t.path, from, to)
@@ -208,12 +208,12 @@ fn substitute_in_path_segment(segment: &mut PathSegment, from: &str, to: &str) {
     let arguments = &mut segment.arguments;
     match arguments {
         syn::PathArguments::None => (),
-        syn::PathArguments::AngleBracketed(ref mut b) => {
+        syn::PathArguments::AngleBracketed(b) => {
             for arg in &mut b.args {
                 substitute_in_generic_argument(arg, from, to)
             }
         }
-        syn::PathArguments::Parenthesized(ref mut p) => {
+        syn::PathArguments::Parenthesized(p) => {
             for ty in &mut p.inputs {
                 substitute_in_type(ty, from, to)
             }
@@ -235,24 +235,22 @@ fn substitute_in_angle_bracketed_generic_arguments(
 /// Substitute an identity in generic arg recursively.
 fn substitute_in_generic_argument(arg: &mut GenericArgument, from: &str, to: &str) {
     match arg {
-        syn::GenericArgument::Type(ref mut ty) => substitute_in_type(ty, from, to),
+        syn::GenericArgument::Type(ty) => substitute_in_type(ty, from, to),
         syn::GenericArgument::Const(_) => (),
-        syn::GenericArgument::AssocType(ref mut a) => {
-            if let Some(ref mut args) = &mut a.generics {
+        syn::GenericArgument::AssocType(a) => {
+            if let Some(args) = &mut a.generics {
                 substitute_in_angle_bracketed_generic_arguments(args, from, to)
             }
             substitute_in_type(&mut a.ty, from, to)
         }
         syn::GenericArgument::AssocConst(_) => (),
-        syn::GenericArgument::Constraint(ref mut c) => {
-            if let Some(ref mut args) = &mut c.generics {
+        syn::GenericArgument::Constraint(c) => {
+            if let Some(args) = &mut c.generics {
                 substitute_in_angle_bracketed_generic_arguments(args, from, to)
             }
             for bound in &mut c.bounds {
                 match bound {
-                    syn::TypeParamBound::Trait(ref mut t) => {
-                        substitute_in_path(&mut t.path, from, to)
-                    }
+                    syn::TypeParamBound::Trait(t) => substitute_in_path(&mut t.path, from, to),
                     syn::TypeParamBound::Lifetime(_) => (),
                     syn::TypeParamBound::Verbatim(_) => (),
                     _ => (),

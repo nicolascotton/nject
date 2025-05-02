@@ -1,11 +1,11 @@
-use crate::core::{collection::group_by, error, DeriveInput, FactoryExpr, FieldFactoryExpr};
+use crate::core::{DeriveInput, FactoryExpr, FieldFactoryExpr, collection::group_by, error};
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
+    Expr, Field, GenericParam, Ident, Lifetime, LifetimeParam, PatType, Token, Type,
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
     spanned::Spanned,
-    Expr, Field, GenericParam, Ident, Lifetime, LifetimeParam, PatType, Token, Type,
 };
 
 enum ProvideStructInput {
