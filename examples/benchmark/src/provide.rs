@@ -97,3 +97,51 @@ fn by_ref_dyn(b: &mut Bencher) {
         }
     });
 }
+
+#[bench]
+fn by_value_from_multiple(b: &mut Bencher) {
+    #[provider]
+    #[injectable]
+    struct MultiProvider(#[import] crate::MultiExportModule);
+    let provider = Provider.provide::<MultiProvider>();
+    b.iter(move || {
+        for _ in 0..ITERATION_COUNT {
+            test::black_box((
+                provider.provide::<MultiDep>(),
+                provider.provide::<MultiDep>(),
+                provider.provide::<MultiDep>(),
+                provider.provide::<MultiDep>(),
+                provider.provide::<MultiDep>(),
+                provider.provide::<MultiDep>(),
+                provider.provide::<MultiDep>(),
+                provider.provide::<MultiDep>(),
+                provider.provide::<MultiDep>(),
+                provider.provide::<MultiDep>(),
+            ));
+        }
+    });
+}
+
+#[bench]
+fn by_ref_dyn_from_multiple(b: &mut Bencher) {
+    #[provider]
+    #[injectable]
+    struct MultiProvider(#[import] crate::MultiExportModule);
+    let provider = Provider.provide::<MultiProvider>();
+    b.iter(move || {
+        for _ in 0..ITERATION_COUNT {
+            test::black_box((
+                provider.provide::<&dyn MultiTrait>(),
+                provider.provide::<&dyn MultiTrait>(),
+                provider.provide::<&dyn MultiTrait>(),
+                provider.provide::<&dyn MultiTrait>(),
+                provider.provide::<&dyn MultiTrait>(),
+                provider.provide::<&dyn MultiTrait>(),
+                provider.provide::<&dyn MultiTrait>(),
+                provider.provide::<&dyn MultiTrait>(),
+                provider.provide::<&dyn MultiTrait>(),
+                provider.provide::<&dyn MultiTrait>(),
+            ));
+        }
+    });
+}

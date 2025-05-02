@@ -59,7 +59,6 @@ struct Provider;
 fn main() {
     let _facade: Facade = Provider.provide();
 }
-
 ```
 ### Works with lifetimes - enables shared dependencies
 ```rust
@@ -82,7 +81,6 @@ fn main() {
     let provider = Provider { shared: DepOne };
     let _facade: Facade = provider.provide();
 }
-
 ```
 ### Works with dyn traits
 ```rust
@@ -125,7 +123,6 @@ fn main() {
     };
     let _facade: Facade = provider.provide();
 }
-
 ```
 ### Works with generics
 ```rust
@@ -145,7 +142,6 @@ struct Provider;
 fn main() {
     let _facade: Facade<DepOne> = Provider.provide();
 }
-
 ```
 ### Works with generic providers
 ```rust
@@ -291,7 +287,6 @@ fn main() {
     let provider = InitProvider.provide::<Provider>();
     let _facade = provider.provide::<sub::Facade>();
 }
-
 ```
 #### Limitations
 1. Internal dependencies can only be exported by a single module.
@@ -357,13 +352,97 @@ fn main() {
     let provider = InitProvider.provide::<Provider>();
     let _facade = provider.provide::<sub::Facade>();
 }
-
 ```
 #### Limitations
 1. Public exports are discovered as macros expand. Therefore, modules must expand before their use in any providers.
    - This limitation is only applicable if **both** module and provider are defined in the same crate. 
 1. Requires `cargo` to build. Run `cargo clean -p nject-macro` to clean the cache if it ever gets corrupted.
 1. Generic parameters are not supported on modules.
+
+### Use modules to export multiple implementations for a public type
+```rust
+use nject::{injectable, provider};
+
+mod one {
+    use nject::{injectable, module};
+
+    #[injectable]
+    struct GreeterOne;
+
+    impl super::Greeter for GreeterOne {
+        fn greet(&self) -> &str {
+            "One"
+        }
+    }
+
+    #[injectable]
+    // The absolute public path to access the module. 
+    // If no path is given, the struct name will be used and must be unique across all modules.
+    // Keywords like `crate` and `Self` will be substituted accordingly.
+    #[module(crate::one::Self)]
+    // Public type exports must be made on the struct (not the fields). 
+    // To prevent name collisions, use absolute paths in types.
+    #[export(&'prov dyn crate::Greeter, &self.greeter)]
+    pub struct Module {
+        greeter: GreeterOne,
+    }
+}
+
+mod two {
+    use nject::{injectable, module};
+
+    #[injectable]
+    struct GreeterTwo;
+
+    impl super::Greeter for GreeterTwo {
+        fn greet(&self) -> &str {
+            "Two"
+        }
+    }
+
+    #[injectable]
+    // The absolute public path to access the module. 
+    // If no path is given, the struct name will be used and must be unique across all modules.
+    // Keywords like `crate` and `Self` will be substituted accordingly.
+    #[module(crate::two::Self)]
+    // Public type exports must be made on the struct (not the fields). 
+    // To prevent name collisions, use absolute paths in types.
+    #[export(&'prov dyn crate::Greeter, &self.greeter)]
+    pub struct Module {
+        greeter: GreeterTwo,
+    }
+}
+
+trait Greeter {
+    fn greet(&self) -> &str;
+}
+
+#[injectable]
+#[provider]
+struct Provider {
+    #[import]
+    // To import module public exports, use the absolute path given in its definition.
+    one: crate::one::Module,
+    #[import]
+    two: crate::two::Module,
+}
+
+fn main() {
+    #[provider]
+    struct InitProvider;
+
+    let provider = InitProvider.provide::<Provider>();
+    let greetings = provider.iter::<&dyn Greeter>()
+        .map(|g| g.greet())
+        .collect::<Vec<_>>();
+    let greeter = provider.provide::<&dyn Greeter>();
+
+    assert_eq!(greetings, vec!["One", "Two"]);
+    assert_eq!(greeter.greet(), "Two");
+}
+```
+#### Limitations
+Same as [module public exports](#limitations-1)
 
 ### Use scopes to scope dependencies
 ```rust

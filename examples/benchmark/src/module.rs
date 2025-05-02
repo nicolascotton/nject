@@ -39,6 +39,10 @@ struct ModuleDyn(
 #[provider]
 struct ModuleProvider(#[import] Module, #[import] ModuleDyn);
 
+#[injectable]
+#[provider]
+struct MultiProvider(#[import] crate::MultiExportModule);
+
 #[bench]
 fn by_ref_from_module(b: &mut Bencher) {
     let provider = Provider.provide::<ModuleProvider>();
@@ -77,6 +81,30 @@ fn by_ref_dyn_from_module(b: &mut Bencher) {
                 provider.provide::<&dyn DepTrait9>(),
                 provider.provide::<&dyn DepTrait10>(),
             ));
+        }
+    });
+}
+
+#[bench]
+fn iter_by_value_from_module(b: &mut Bencher) {
+    let provider = Provider.provide::<MultiProvider>();
+    b.iter(move || {
+        for _ in 0..ITERATION_COUNT {
+            test::black_box(for x in provider.iter::<MultiDep>() {
+                let _ = x;
+            });
+        }
+    });
+}
+
+#[bench]
+fn iter_by_dyn_ref_from_module(b: &mut Bencher) {
+    let provider = Provider.provide::<MultiProvider>();
+    b.iter(move || {
+        for _ in 0..ITERATION_COUNT {
+            test::black_box(for x in provider.iter::<&dyn MultiTrait>() {
+                let _ = x;
+            });
         }
     });
 }

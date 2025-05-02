@@ -71,3 +71,53 @@ fn by_ref_from_root(b: &mut Bencher) {
         }
     });
 }
+
+#[bench]
+fn by_value_from_multiple(b: &mut Bencher) {
+    #[provider]
+    #[injectable]
+    #[scope(#[import] crate::MultiExportModule)]
+    struct MultiProvider;
+    let scope = MultiProvider.scope();
+    b.iter(move || {
+        for _ in 0..ITERATION_COUNT {
+            test::black_box((
+                scope.provide::<MultiDep>(),
+                scope.provide::<MultiDep>(),
+                scope.provide::<MultiDep>(),
+                scope.provide::<MultiDep>(),
+                scope.provide::<MultiDep>(),
+                scope.provide::<MultiDep>(),
+                scope.provide::<MultiDep>(),
+                scope.provide::<MultiDep>(),
+                scope.provide::<MultiDep>(),
+                scope.provide::<MultiDep>(),
+            ));
+        }
+    });
+}
+
+#[bench]
+fn by_ref_dyn_from_multiple(b: &mut Bencher) {
+    #[provider]
+    #[injectable]
+    #[scope(#[import] crate::MultiExportModule)]
+    struct MultiProvider;
+    let scope = MultiProvider.scope();
+    b.iter(move || {
+        for _ in 0..ITERATION_COUNT {
+            test::black_box((
+                scope.provide::<&dyn MultiTrait>(),
+                scope.provide::<&dyn MultiTrait>(),
+                scope.provide::<&dyn MultiTrait>(),
+                scope.provide::<&dyn MultiTrait>(),
+                scope.provide::<&dyn MultiTrait>(),
+                scope.provide::<&dyn MultiTrait>(),
+                scope.provide::<&dyn MultiTrait>(),
+                scope.provide::<&dyn MultiTrait>(),
+                scope.provide::<&dyn MultiTrait>(),
+                scope.provide::<&dyn MultiTrait>(),
+            ));
+        }
+    });
+}

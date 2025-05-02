@@ -1,6 +1,6 @@
 pub mod models;
 pub mod repository;
-use crate::core::{error, DeriveInput, FactoryExpr, FieldFactoryExpr};
+use crate::core::{collection::group_by, error, DeriveInput, FactoryExpr, FieldFactoryExpr};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
@@ -9,6 +9,7 @@ use syn::{
     Expr, PatType, Path, Token, Type,
 };
 
+#[derive(Clone)]
 enum ExportStructInput {
     TypeExpr(Type, Box<Expr>),
     TypeExprFact(Type, Vec<PatType>, Box<Expr>),
@@ -41,7 +42,7 @@ pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> syn::Result
     };
     let ident = &input.ident;
     let fields = input.fields().iter().collect::<Vec<_>>();
-    let mut struct_exports = input
+    let struct_exports = input
         .attrs
         .iter()
         .filter(|a| a.path().is_ident("export"))
@@ -70,6 +71,10 @@ pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> syn::Result
             }
         })
         .collect::<Vec<_>>();
+    let struct_exports_by_type = group_by(struct_exports.iter(), |k| match k {
+        ExportStructInput::TypeExpr(t, _) => quote! {#t}.to_string(),
+        ExportStructInput::TypeExprFact(t, _, _) => quote! {#t}.to_string(),
+    });
     let struct_type_exports = struct_exports
         .iter()
         .map(|e| match e {
@@ -98,15 +103,44 @@ pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> syn::Result
         None => quote! {},
     };
     let generic_params = input.generic_params();
-    let struct_export_outputs = struct_exports
-        .iter_mut()
-        .map(|t| {
-            let mut empty = vec![];
-            let (ty, inputs, value) = match t {
-                ExportStructInput::TypeExpr(t, v) => (t,&mut empty, v),
-                ExportStructInput::TypeExprFact(t, i, v) => (t, i, v),
+    let struct_export_outputs = struct_exports_by_type
+        .values()
+        .map(|exports| {
+            let values = exports.iter().map(|e| {
+                let (mut ty, inputs, value) = match e.to_owned().to_owned() {
+                    ExportStructInput::TypeExpr(t, v) => (t, vec![], v),
+                    ExportStructInput::TypeExprFact(t, i, v) => (t, i, v),
+                };
+                super::core::substitute_in_type(&mut ty, "Self", ident.to_string().as_str());
+                (ty, inputs, value)
+            }).collect::<Vec<_>>();
+            let iter_match_outputs = values.iter().enumerate().map(|(index,(_, inputs, value))| {
+                quote! {
+                    #index => {
+                        #(let #inputs = provider.provide();)*
+                        #value
+                    },
+                }
+            });
+            let prov_types = values.iter().flat_map(|(_, inputs, _)| inputs.iter().map(|i| &i.ty));
+            let ty = &values.first().unwrap().0;
+            let iter_output = quote! {
+                impl<'prov, #(#generic_params,)*NjectProvider> nject::RefIterable<'prov, #ty, NjectProvider> for #ident<#(#generic_keys),*>
+                    where
+                        #prov_lifetimes
+                        NjectProvider: #(nject::Provider<'prov, #prov_types>)+*, #where_predicates
+                {
+                    #[inline]
+                    fn inject(&'prov self, provider: &'prov NjectProvider, index: usize) -> #ty {
+                        match index {
+                            #( #iter_match_outputs )*
+                            _ => unreachable!("Invalid index {index}"),
+                        }
+                    }
+                }
             };
-            super::core::substitute_in_type(ty, "Self", ident.to_string().as_str());
+
+            let (ty, inputs, value) = values.last().unwrap();
             let prov_types = inputs.iter().map(|i| &i.ty);
             quote!{
 
@@ -121,6 +155,8 @@ pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> syn::Result
                         #value
                     }
                 }
+
+                #iter_output
             }
         });
 

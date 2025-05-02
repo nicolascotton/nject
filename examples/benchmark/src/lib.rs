@@ -13,7 +13,7 @@ pub mod provide;
 #[cfg(test)]
 pub mod scope;
 
-use nject::{inject, injectable};
+use nject::{inject, injectable, module};
 
 pub const ITERATION_COUNT: i32 = 10000;
 
@@ -68,3 +68,52 @@ impl DepTrait7 for Dep7 {}
 impl DepTrait8 for Dep8 {}
 impl DepTrait9 for Dep9 {}
 impl DepTrait10 for Dep10 {}
+
+pub trait MultiTrait {}
+
+impl MultiTrait for Dep1 {}
+impl MultiTrait for Dep2 {}
+impl MultiTrait for Dep3 {}
+impl MultiTrait for Dep4 {}
+impl MultiTrait for Dep5 {}
+impl MultiTrait for Dep6 {}
+impl MultiTrait for Dep7 {}
+impl MultiTrait for Dep8 {}
+impl MultiTrait for Dep9 {}
+impl MultiTrait for Dep10 {}
+struct MultiDep(i32);
+
+#[injectable]
+#[module(crate::Self)]
+#[export(&'prov dyn crate::MultiTrait, &self.dep1)]
+#[export(&'prov dyn crate::MultiTrait, &self.dep2)]
+#[export(&'prov dyn crate::MultiTrait, &self.dep3)]
+#[export(&'prov dyn crate::MultiTrait, &self.dep4)]
+#[export(&'prov dyn crate::MultiTrait, &self.dep5)]
+#[export(&'prov dyn crate::MultiTrait, &self.dep6)]
+#[export(&'prov dyn crate::MultiTrait, &self.dep7)]
+#[export(&'prov dyn crate::MultiTrait, &self.dep8)]
+#[export(&'prov dyn crate::MultiTrait, &self.dep9)]
+#[export(&'prov dyn crate::MultiTrait, &self.dep10)]
+#[export(crate::MultiDep, MultiDep(1))]
+#[export(crate::MultiDep, MultiDep(2))]
+#[export(crate::MultiDep, MultiDep(3))]
+#[export(crate::MultiDep, MultiDep(4))]
+#[export(crate::MultiDep, MultiDep(5))]
+#[export(crate::MultiDep, MultiDep(6))]
+#[export(crate::MultiDep, MultiDep(7))]
+#[export(crate::MultiDep, MultiDep(8))]
+#[export(crate::MultiDep, MultiDep(9))]
+#[export(crate::MultiDep, MultiDep(10))]
+struct MultiExportModule {
+    dep1: Dep1,
+    dep2: Dep2,
+    dep3: Dep3,
+    dep4: Dep4,
+    dep5: Dep5,
+    dep6: Dep6,
+    dep7: Dep7,
+    dep8: Dep8,
+    dep9: Dep9,
+    dep10: Dep10,
+}
