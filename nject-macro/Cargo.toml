@@ -1,6 +1,6 @@
 [package]
 name = "nject-macro"
-version = "0.4.4"
+version = "0.4.5"
 edition = "2024"
 description = "Zero cost dependency injection macros"
 rust-version = "1.85"
