@@ -3,7 +3,7 @@ use serde::Serialize;
 #[derive(Serialize)]
 pub enum Error {
     NotFound,
-    Unexpected
+    Unexpected,
 }
 
 impl From<sqlx::Error> for Error {

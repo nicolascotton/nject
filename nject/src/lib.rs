@@ -4,8 +4,8 @@
 
 #[cfg(feature = "macro")]
 pub use nject_macro::{
-    inject, injectable, module, provider, InjectableHelperAttr, ModuleHelperAttr,
-    ProviderHelperAttr, ScopeHelperAttr,
+    InjectableHelperAttr, ModuleHelperAttr, ProviderHelperAttr, ScopeHelperAttr, inject,
+    injectable, module, provider,
 };
 
 /// Provide a value for a specified type. Should be used with the `provide` macro for a better experience.

@@ -181,7 +181,7 @@ fn provide_with_generic_root_should_give_corresponding_value() {
     let value = scope.provide::<ScopedValue>();
     // Then
     assert_eq!(value.0.value(), 456);
-    assert_eq!(value.1 .0, &123);
+    assert_eq!(value.1.0, &123);
 }
 
 #[test]

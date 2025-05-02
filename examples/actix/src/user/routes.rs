@@ -4,9 +4,8 @@ use super::{
     service::UserService,
 };
 use actix_web::{
-    delete, get, post, put,
-    web::{self, scope, Json, Path},
-    Either, HttpResponse, Responder, Result, Scope,
+    Either, HttpResponse, Responder, Result, Scope, delete, get, post, put,
+    web::{self, Json, Path, scope},
 };
 
 pub fn create_scope() -> Scope {

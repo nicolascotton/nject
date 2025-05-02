@@ -66,8 +66,8 @@ fn provide_struct_with_unnamed_generic_deps_should_give_corresponding_struct() {
 }
 
 #[test]
-fn provide_struct_with_non_injectable_named_deps_with_inject_annotation_should_give_corresponding_struct(
-) {
+fn provide_struct_with_non_injectable_named_deps_with_inject_annotation_should_give_corresponding_struct()
+ {
     // Given
     let provider = Provider {};
     // When
@@ -82,8 +82,8 @@ fn provide_struct_with_non_injectable_named_deps_with_inject_annotation_should_g
 }
 
 #[test]
-fn provide_struct_with_non_injectable_named_deps_and_inject_annotation_should_prioritize_annotation_on_struct(
-) {
+fn provide_struct_with_non_injectable_named_deps_and_inject_annotation_should_prioritize_annotation_on_struct()
+ {
     // Given
     let provider = Provider {};
     // When
@@ -99,8 +99,8 @@ fn provide_struct_with_non_injectable_named_deps_and_inject_annotation_should_pr
 }
 
 #[test]
-fn provide_struct_with_non_injectable_unnamed_deps_with_inject_annotation_should_give_corresponding_struct(
-) {
+fn provide_struct_with_non_injectable_unnamed_deps_with_inject_annotation_should_give_corresponding_struct()
+ {
     // Given
     let provider = Provider {};
     // When
@@ -113,8 +113,8 @@ fn provide_struct_with_non_injectable_unnamed_deps_with_inject_annotation_should
 }
 
 #[test]
-fn provide_struct_with_non_injectable_unnnamed_deps_and_inject_annotation_should_prioritize_annotation_on_struct(
-) {
+fn provide_struct_with_non_injectable_unnnamed_deps_and_inject_annotation_should_prioritize_annotation_on_struct()
+ {
     // Given
     let provider = Provider {};
     // When
@@ -130,8 +130,8 @@ fn provide_struct_with_non_injectable_unnnamed_deps_and_inject_annotation_should
 }
 
 #[test]
-fn provide_struct_with_inject_factory_and_additionnal_injectable_inputs_should_give_corresponding_struct(
-) {
+fn provide_struct_with_inject_factory_and_additionnal_injectable_inputs_should_give_corresponding_struct()
+ {
     // Given
     let provider = Provider {};
     // When
@@ -147,8 +147,8 @@ fn provide_struct_with_inject_factory_and_additionnal_injectable_inputs_should_g
 }
 
 #[test]
-fn provide_struct_with_inject_factory_and_additionnal_injectable_inputs_on_field_should_give_corresponding_struct(
-) {
+fn provide_struct_with_inject_factory_and_additionnal_injectable_inputs_on_field_should_give_corresponding_struct()
+ {
     // Given
     let provider = Provider {};
     // When

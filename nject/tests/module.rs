@@ -98,8 +98,8 @@ fn provide_with_module_with_external_type_export_should_provide_its_members_corr
 struct TestModule1(#[inject(Rc::new(123))] Rc<i32>);
 
 #[test]
-fn provide_with_module_with_external_type_export_with_simple_factory_should_provide_its_members_correctly(
-) {
+fn provide_with_module_with_external_type_export_with_simple_factory_should_provide_its_members_correctly()
+ {
     // Given
     #[injectable]
     #[provider]
@@ -112,8 +112,8 @@ fn provide_with_module_with_external_type_export_with_simple_factory_should_prov
 }
 
 #[test]
-fn provide_with_module_with_external_type_export_with_complex_factory_should_provide_its_members_correctly(
-) {
+fn provide_with_module_with_external_type_export_with_complex_factory_should_provide_its_members_correctly()
+ {
     // Given
     #[injectable]
     #[module]
@@ -171,8 +171,8 @@ fn provide_with_module_with_factory_internal_export_should_provide_its_members_c
     let dep_ref = provider.provide::<&Ref<i32>>();
     // Then
     assert_eq!(dep, Ref(Rc::new(123)));
-    assert!(Rc::ptr_eq(&dep.0, &provider.0 .0));
-    assert_eq!(*dep_ref.0, *provider.0 .1 .0);
+    assert!(Rc::ptr_eq(&dep.0, &provider.0.0));
+    assert_eq!(*dep_ref.0, *provider.0.1.0);
 }
 
 mod sub {

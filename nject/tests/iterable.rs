@@ -30,8 +30,8 @@ fn iter_with_multiple_exports_for_a_type_from_different_modules_should_return_it
 }
 
 #[test]
-fn provide_with_multiple_exports_for_a_type_from_different_modules_should_return_value_from_last_module(
-) {
+fn provide_with_multiple_exports_for_a_type_from_different_modules_should_return_value_from_last_module()
+ {
     // Given
     #[module]
     #[injectable]

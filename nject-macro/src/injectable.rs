@@ -1,10 +1,10 @@
-use crate::core::{error, DeriveInput, FactoryExpr};
+use crate::core::{DeriveInput, FactoryExpr, error};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
+    Expr, PatType, Token,
     parse::{Parse, ParseStream},
     spanned::Spanned,
-    Expr, PatType, Token,
 };
 
 struct InjectExpr(Box<Expr>, Vec<PatType>);
