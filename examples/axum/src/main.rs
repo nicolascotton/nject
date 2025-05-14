@@ -22,7 +22,7 @@ async fn main() {
     let provider: &'static Provider = Box::leak(Box::new(InitProvider.provide()));
     let app = Router::new()
         .route("/api/users", post(create_user))
-        .route("/api/users/:id", get(get_user))
+        .route("/api/users/{id}", get(get_user))
         .with_state(provider);
 
     let addr = "0.0.0.0:3000";
