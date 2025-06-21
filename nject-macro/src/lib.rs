@@ -48,8 +48,8 @@ pub fn scope_helper_attr(_item: TokenStream) -> TokenStream {
 /// let facade: Facade = Provider.provide();
 /// ```
 #[proc_macro_attribute]
-pub fn injectable(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    handle_injectable(item).unwrap_or_else(|e| e.to_compile_error().into())
+pub fn injectable(attr: TokenStream, item: TokenStream) -> TokenStream {
+    handle_injectable(item, attr).unwrap_or_else(|e| e.to_compile_error().into())
 }
 
 /// Use the given value to inject.
@@ -104,8 +104,8 @@ pub fn inject(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// let facade: Facade = provider.provide();
 /// ```
 #[proc_macro_attribute]
-pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    handle_provider(item).unwrap_or_else(|e| e.to_compile_error().into())
+pub fn provider(attr: TokenStream, item: TokenStream) -> TokenStream {
+    handle_provider(item, attr).unwrap_or_else(|e| e.to_compile_error().into())
 }
 
 /// Declare a module to export internal types.
