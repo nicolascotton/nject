@@ -138,7 +138,7 @@ pub(crate) fn handle_provider(
         {
             #[inline]
             fn provide(&'prov self) -> Njecty {
-                Njecty::inject(self)
+                <Njecty as #path::Injectable<'prov, Njecty, #ident<#(#generic_keys),*>>>::inject(self)
             }
         }
 
@@ -166,7 +166,7 @@ pub(crate) fn handle_provider(
         where #where_predicates
         {
             #[inline]
-            pub fn iter<'prov, Value>(&'prov self) -> impl Iterator<Item = Value> + use<'prov #(,#generic_keys)*, Value>
+            pub fn iter<'prov, Value>(&'prov self) -> impl #path::core::iter::Iterator<Item = Value> + use<'prov #(,#generic_keys)*, Value>
             where Self: #path::Iterable<'prov, Value>
             {
                 #path::Iterable::<'prov, Value>::iter(self)
@@ -237,23 +237,23 @@ fn gen_imports_for_import_attr(
                 where #where_predicates
             {
                 #[inline]
-                fn iter(&'prov self) -> impl Iterator<Item = #ty> {
+                fn iter(&'prov self) -> impl #path::core::iter::Iterator<Item = #ty> {
                     struct NjectIterator<'prov, #(#generic_params),*> {
                         provider: &'prov #ident<#(#generic_keys),*>,
                         index: usize,
                     }
-                    impl<'prov, #(#generic_params),*> Iterator for NjectIterator<'prov, #(#generic_keys),*> {
+                    impl<'prov, #(#generic_params),*> #path::core::iter::Iterator for NjectIterator<'prov, #(#generic_keys),*> {
                         type Item = #ty;
 
-                        fn next(&mut self) -> Option<Self::Item> {
+                        fn next(&mut self) -> #path::core::option::Option<Self::Item> {
                             let result = match self.index {
                                 #( #iter_match_outputs )*
                                 _ => {
-                                    return None;
+                                    return #path::core::option::Option::None;
                                 }
                             };
                             self.index += 1;
-                            Some(result)
+                            #path::core::option::Option::Some(result)
                         }
                     }
                     NjectIterator {

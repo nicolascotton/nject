@@ -1,7 +1,8 @@
 #![no_std]
 #![allow(clippy::needless_doctest_main)]
 #![doc = include_str!("../README.md")]
-
+#[doc(hidden)]
+pub use core;
 #[cfg(feature = "macro")]
 pub use nject_macro::{
     InjectableHelperAttr, ModuleHelperAttr, ProviderHelperAttr, ScopeHelperAttr, inject,
