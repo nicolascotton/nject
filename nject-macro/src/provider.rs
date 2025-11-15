@@ -48,8 +48,7 @@ pub(crate) fn handle_provider(
         .filter_map(|(i, f)| {
             f.attrs
                 .iter()
-                .filter(|a| a.path().is_ident("import"))
-                .next_back()
+                .rfind(|a| a.path().is_ident("import"))
                 .map(|_| i)
         })
         .collect::<Vec<_>>();
@@ -468,10 +467,10 @@ fn gen_scope_output(
             None => format_ident!("scope"),
         };
         let arg_scope_fields =  scope_fields.iter()
-            .map(|f| f.attrs.iter().filter(|a| match &a.meta {
+            .map(|f| f.attrs.iter().rfind(|a| match &a.meta {
                 syn::Meta::Path(p) => p.is_ident("arg"),
                 _ => false,
-            }).next_back().is_some()).collect::<Vec<_>>();
+            }).is_some()).collect::<Vec<_>>();
         let scope_field_outputs = scope_fields.iter().map(|f| {
             let mut f = f.to_owned().to_owned();
             f.ident = None;

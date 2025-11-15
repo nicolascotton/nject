@@ -28,12 +28,7 @@ pub(crate) fn handle_injectable(item: TokenStream) -> syn::Result<TokenStream> {
     let attributes = fields
         .iter()
         .map(|f| {
-            let Some(attr) = f
-                .attrs
-                .iter()
-                .filter(|a| a.path().is_ident("inject"))
-                .next_back()
-            else {
+            let Some(attr) = f.attrs.iter().rfind(|a| a.path().is_ident("inject")) else {
                 return Ok(None);
             };
             attr.parse_args::<InjectExpr>().map(Some).map_err(|e| {
