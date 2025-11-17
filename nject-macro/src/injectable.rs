@@ -1,9 +1,10 @@
-use crate::core::{DeriveInput, FactoryExpr, error};
+use crate::core::{DeriveInput, FactoryExpr, PathWrapper, error};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    Expr, PatType, Token,
+    Expr, PatType, Path, Token,
     parse::{Parse, ParseStream},
+    parse_quote,
     spanned::Spanned,
 };
 
@@ -19,8 +20,9 @@ impl Parse for InjectExpr {
     }
 }
 
-pub(crate) fn handle_injectable(item: TokenStream) -> syn::Result<TokenStream> {
+pub(crate) fn handle_injectable(item: TokenStream, attr: TokenStream) -> syn::Result<TokenStream> {
     let input = syn::parse::<DeriveInput>(item)?;
+    let path = syn::parse::<PathWrapper>(attr)?.0;
     let ident = &input.ident;
     let fields = input.fields();
     let types = input.field_types();
@@ -60,7 +62,7 @@ pub(crate) fn handle_injectable(item: TokenStream) -> syn::Result<TokenStream> {
                     let inputs = attr
                         .1
                         .iter()
-                        .map(|x| quote! { let #x = provider.provide(); })
+                        .map(|x| quote! { let #x = #path::Provider::provide(provider); })
                         .collect::<Vec<_>>();
                     let output = &attr.0;
                     if inputs.is_empty() {
@@ -74,7 +76,7 @@ pub(crate) fn handle_injectable(item: TokenStream) -> syn::Result<TokenStream> {
                         }
                     }
                 }
-                None => quote! { provider.provide() },
+                None => quote! { #path::Provider::provide(provider) },
             });
             quote! { #ident(#(#items),*) }
         }
@@ -84,7 +86,7 @@ pub(crate) fn handle_injectable(item: TokenStream) -> syn::Result<TokenStream> {
                     let inputs = attr
                         .1
                         .iter()
-                        .map(|x| quote! { let #x = provider.provide(); })
+                        .map(|x| quote! { let #x = #path::Provider::provide(provider); })
                         .collect::<Vec<_>>();
                     let output = &attr.0;
                     quote! {
@@ -94,7 +96,7 @@ pub(crate) fn handle_injectable(item: TokenStream) -> syn::Result<TokenStream> {
                         }
                     }
                 }
-                None => quote! { #k: provider.provide() },
+                None => quote! { #k: #path::Provider::provide(provider) },
             });
             quote! { #ident { #(#items),* } }
         }
@@ -111,13 +113,13 @@ pub(crate) fn handle_injectable(item: TokenStream) -> syn::Result<TokenStream> {
     }
     prov_types.dedup_by(|a, b| a.to_string() == b.to_string());
     let output = quote! {
-        #[derive(nject::InjectableHelperAttr)]
+        #[derive(#path::InjectableHelperAttr)]
         #input
 
-        impl<'prov, #(#generic_params,)*NjectProvider> nject::Injectable<'prov, #ident<#(#generic_keys),*>, NjectProvider> for #ident<#(#generic_keys),*>
+        impl<'prov, #(#generic_params,)*NjectProvider> #path::Injectable<'prov, #ident<#(#generic_keys),*>, NjectProvider> for #ident<#(#generic_keys),*>
             where
                 #prov_lifetimes
-                NjectProvider: #(nject::Provider<'prov, #prov_types>)+*, #where_predicates
+                NjectProvider: #(#path::Provider<'prov, #prov_types>)+*, #where_predicates
         {
             #[inline]
             fn inject(provider: &'prov NjectProvider) -> #ident<#(#generic_keys),*> {
