@@ -1,10 +1,12 @@
 #![allow(clippy::needless_doctest_main)]
 #![doc = include_str!("../README.md")]
 mod core;
+mod init;
 mod inject;
 mod injectable;
 mod module;
 mod provider;
+use init::handle_init;
 use inject::handle_inject;
 use injectable::handle_injectable;
 use module::handle_module;
@@ -160,4 +162,72 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 pub fn module(attr: TokenStream, item: TokenStream) -> TokenStream {
     handle_module(attr, item).unwrap_or_else(|e| e.to_compile_error().into())
+}
+
+/// Simplify provider initialisation by automatically creating the chain of intermediate providers.
+///
+/// Instead of manually defining intermediate providers and chaining `.provide()` calls,
+/// use `init!` with the list of module types in dependency order.
+///
+/// # Expression form
+///
+/// Returns the provider as an owned value. Works with struct-level `#[export]` (owned values).
+///
+/// ```rust
+/// use nject::{init, injectable, module, provider};
+///
+/// #[injectable]
+/// #[module]
+/// #[export(i32, 42)]
+/// struct ConfigModule;
+///
+/// #[injectable]
+/// #[module]
+/// #[export(String, |x: i32| format!("value: {}", x))]
+/// struct FormatModule;
+///
+/// #[injectable]
+/// #[provider]
+/// struct AppProvider(#[import] ConfigModule, #[import] FormatModule);
+///
+/// let provider: AppProvider = init!(ConfigModule, FormatModule);
+/// let greeting: String = provider.provide();
+/// assert_eq!(greeting, "value: 42");
+/// ```
+///
+/// # Block form
+///
+/// Expands `let` declarations into the enclosing scope, keeping intermediate providers alive.
+/// This supports field-level `#[export]` (references) and multiple declarations (like `lazy_static!`).
+///
+/// ```rust
+/// use nject::{init, injectable, module, provider};
+///
+/// #[derive(Debug)]
+/// #[injectable]
+/// struct Secret(#[inject(42)] i32);
+///
+/// #[injectable]
+/// #[module]
+/// struct SecretModule {
+///     #[export]
+///     secret: Secret,
+/// }
+///
+/// #[injectable]
+/// struct Consumer<'a>(&'a Secret);
+///
+/// #[injectable]
+/// #[provider]
+/// struct AppProvider(#[import] SecretModule);
+///
+/// init! {
+///     let provider: AppProvider = SecretModule;
+/// }
+/// let consumer: Consumer = provider.provide();
+/// assert_eq!(consumer.0.0, 42);
+/// ```
+#[proc_macro]
+pub fn init(item: TokenStream) -> TokenStream {
+    handle_init(item).unwrap_or_else(|e| e.to_compile_error().into())
 }

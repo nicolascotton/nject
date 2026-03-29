@@ -4,7 +4,7 @@
 
 #[cfg(feature = "macro")]
 pub use nject_macro::{
-    InjectableHelperAttr, ModuleHelperAttr, ProviderHelperAttr, ScopeHelperAttr, inject,
+    InjectableHelperAttr, ModuleHelperAttr, ProviderHelperAttr, ScopeHelperAttr, init, inject,
     injectable, module, provider,
 };
 
