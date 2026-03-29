@@ -1,0 +1,30 @@
+error[E0277]: the trait bound `nject::Named<Key<35884545766218561747518507268035953522>, String>: Injectable<'_, nject::Named<Key<35884545766218561747518507268035953522>, String>, WrongKeyProvider>` is not satisfied
+  --> tests/compile_fail/named_wrong_str_key.rs:16:34
+   |
+16 |     let _svc: Service = provider.provide();
+   |                                  ^^^^^^^ unsatisfied trait bound
+   |
+   = help: the trait `Injectable<'_, nject::Named<Key<35884545766218561747518507268035953522>, String>, WrongKeyProvider>` is not implemented for `nject::Named<Key<35884545766218561747518507268035953522>, String>`
+help: the trait `Injectable<'prov, Service, NjectProvider>` is implemented for `Service`
+  --> tests/compile_fail/named_wrong_str_key.rs:4:1
+   |
+ 4 | #[injectable]
+   | ^^^^^^^^^^^^^
+note: required for `WrongKeyProvider` to implement `Provider<'_, nject::Named<Key<35884545766218561747518507268035953522>, String>>`
+  --> tests/compile_fail/named_wrong_str_key.rs:10:1
+   |
+10 | #[provider]
+   | ^^^^^^^^^^^
+note: required for `Service` to implement `Injectable<'_, Service, WrongKeyProvider>`
+  --> tests/compile_fail/named_wrong_str_key.rs:4:1
+   |
+ 4 | #[injectable]
+   | ^^^^^^^^^^^^^
+   = note: 1 redundant requirement hidden
+   = note: required for `WrongKeyProvider` to implement `Provider<'_, Service>`
+note: required by a bound in `WrongKeyProvider::provide`
+  --> tests/compile_fail/named_wrong_str_key.rs:10:1
+   |
+10 | #[provider]
+   | ^^^^^^^^^^^ required by this bound in `WrongKeyProvider::provide`
+   = note: this error originates in the attribute macro `injectable` which comes from the expansion of the attribute macro `provider` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -1,0 +1,29 @@
+error[E0277]: the trait bound `nject::Named<DbUrl, String>: Injectable<'_, nject::Named<DbUrl, String>, MismatchedProvider>` is not satisfied
+  --> tests/compile_fail/named_str_key_vs_type_tag.rs:19:34
+   |
+19 |     let _svc: Service = provider.provide();
+   |                                  ^^^^^^^ the trait `Injectable<'_, nject::Named<DbUrl, String>, MismatchedProvider>` is not implemented for `nject::Named<DbUrl, String>`
+   |
+help: the trait `Injectable<'prov, Service, NjectProvider>` is implemented for `Service`
+  --> tests/compile_fail/named_str_key_vs_type_tag.rs:7:1
+   |
+ 7 | #[injectable]
+   | ^^^^^^^^^^^^^
+note: required for `MismatchedProvider` to implement `Provider<'_, nject::Named<DbUrl, String>>`
+  --> tests/compile_fail/named_str_key_vs_type_tag.rs:13:1
+   |
+13 | #[provider]
+   | ^^^^^^^^^^^
+note: required for `Service` to implement `Injectable<'_, Service, MismatchedProvider>`
+  --> tests/compile_fail/named_str_key_vs_type_tag.rs:7:1
+   |
+ 7 | #[injectable]
+   | ^^^^^^^^^^^^^
+   = note: 1 redundant requirement hidden
+   = note: required for `MismatchedProvider` to implement `Provider<'_, Service>`
+note: required by a bound in `MismatchedProvider::provide`
+  --> tests/compile_fail/named_str_key_vs_type_tag.rs:13:1
+   |
+13 | #[provider]
+   | ^^^^^^^^^^^ required by this bound in `MismatchedProvider::provide`
+   = note: this error originates in the attribute macro `injectable` which comes from the expansion of the attribute macro `provider` (in Nightly builds, run with -Z macro-backtrace for more info)

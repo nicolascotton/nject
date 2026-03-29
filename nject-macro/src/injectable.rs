@@ -2,19 +2,48 @@ use crate::core::{DeriveInput, FactoryExpr, error};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    Expr, PatType, Token,
+    Expr, PatType, Token, Type,
     parse::{Parse, ParseStream},
     spanned::Spanned,
 };
 
-struct InjectExpr(Box<Expr>, Vec<PatType>);
+enum InjectExpr {
+    /// A direct expression, optionally with factory inputs: `expr` or `|dep: T| expr`
+    Value(Box<Expr>, Vec<PatType>),
+    /// A named injection tag type: `named(TagType)`
+    Named(Type),
+    /// A named injection string key: `named("key")` — resolved via `Key<{hash}>`
+    NamedStr(u128),
+}
 impl Parse for InjectExpr {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        // Check for `named(TagType)` or `named("string_key")` syntax
+        if input.peek(syn::Ident) {
+            let fork = input.fork();
+            if let Ok(ident) = fork.parse::<syn::Ident>() {
+                if ident == "named" {
+                    // Commit to the `named(...)` parse
+                    input.parse::<syn::Ident>()?; // consume "named"
+                    let content;
+                    syn::parenthesized!(content in input);
+                    // Check for string literal: named("key")
+                    if content.peek(syn::LitStr) {
+                        let lit: syn::LitStr = content.parse()?;
+                        let hash_bytes = crate::core::hash::fnv(lit.value().as_bytes());
+                        let hash = u128::from_be_bytes(hash_bytes);
+                        return Ok(InjectExpr::NamedStr(hash));
+                    }
+                    // Otherwise parse as type: named(TagType)
+                    let tag_type: Type = content.parse()?;
+                    return Ok(InjectExpr::Named(tag_type));
+                }
+            }
+        }
         if input.peek(Token![|]) {
             let expr = FactoryExpr::parse(input)?;
-            Ok(InjectExpr(expr.body, expr.inputs))
+            Ok(InjectExpr::Value(expr.body, expr.inputs))
         } else {
-            Ok(InjectExpr(input.parse()?, vec![]))
+            Ok(InjectExpr::Value(input.parse()?, vec![]))
         }
     }
 }
@@ -55,20 +84,24 @@ pub(crate) fn handle_injectable(item: TokenStream) -> syn::Result<TokenStream> {
     };
     let creation_output = match keys.is_empty() && !types.is_empty() {
         true => {
-            let items = types.iter().zip(&attributes).map(|(_, a)| match a {
-                Some(attr) => {
-                    let inputs = attr
-                        .1
+            let items = types.iter().zip(&attributes).map(|(ty, a)| match a {
+                Some(InjectExpr::Named(tag)) => {
+                    quote! { nject::Named::<#tag, #ty>::into_inner(provider.provide()) }
+                }
+                Some(InjectExpr::NamedStr(hash)) => {
+                    quote! { nject::Named::<nject::Key<#hash>, #ty>::into_inner(provider.provide()) }
+                }
+                Some(InjectExpr::Value(output, inputs)) => {
+                    let input_stmts = inputs
                         .iter()
                         .map(|x| quote! { let #x = provider.provide(); })
                         .collect::<Vec<_>>();
-                    let output = &attr.0;
-                    if inputs.is_empty() {
+                    if input_stmts.is_empty() {
                         quote! { #output }
                     } else {
                         quote! {
                             {
-                                #(#inputs)*
+                                #(#input_stmts)*
                                 #output
                             }
                         }
@@ -79,17 +112,25 @@ pub(crate) fn handle_injectable(item: TokenStream) -> syn::Result<TokenStream> {
             quote! { #ident(#(#items),*) }
         }
         false => {
-            let items = keys.iter().zip(&attributes).map(|(k, a)| match a {
-                Some(attr) => {
-                    let inputs = attr
-                        .1
+            let items = keys.iter().zip(types.iter()).zip(&attributes).map(|((k, ty), a)| match a {
+                Some(InjectExpr::Named(tag)) => {
+                    quote! {
+                        #k: nject::Named::<#tag, #ty>::into_inner(provider.provide())
+                    }
+                }
+                Some(InjectExpr::NamedStr(hash)) => {
+                    quote! {
+                        #k: nject::Named::<nject::Key<#hash>, #ty>::into_inner(provider.provide())
+                    }
+                }
+                Some(InjectExpr::Value(output, inputs)) => {
+                    let input_stmts = inputs
                         .iter()
                         .map(|x| quote! { let #x = provider.provide(); })
                         .collect::<Vec<_>>();
-                    let output = &attr.0;
                     quote! {
                         #k: {
-                            #(#inputs)*
+                            #(#input_stmts)*
                             #output
                         }
                     }
@@ -101,12 +142,21 @@ pub(crate) fn handle_injectable(item: TokenStream) -> syn::Result<TokenStream> {
     };
     let mut prov_types = Vec::<_>::with_capacity(types.len());
     for (t, a) in types.iter().zip(&attributes) {
-        if let Some(attr) = a {
-            for attr_type in attr.1.iter().map(|x| &x.ty) {
-                prov_types.push(quote! {#attr_type});
+        match a {
+            Some(InjectExpr::Named(tag)) => {
+                prov_types.push(quote! { nject::Named<#tag, #t> });
             }
-        } else {
-            prov_types.push(quote! {#t});
+            Some(InjectExpr::NamedStr(hash)) => {
+                prov_types.push(quote! { nject::Named<nject::Key<#hash>, #t> });
+            }
+            Some(InjectExpr::Value(_, inputs)) => {
+                for attr_type in inputs.iter().map(|x| &x.ty) {
+                    prov_types.push(quote! {#attr_type});
+                }
+            }
+            None => {
+                prov_types.push(quote! {#t});
+            }
         }
     }
     prov_types.dedup_by(|a, b| a.to_string() == b.to_string());

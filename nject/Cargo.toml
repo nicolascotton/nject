@@ -15,6 +15,9 @@ repository = "https://github.com/nicolascotton/nject"
 [dependencies]
 nject-macro = { path = "../nject-macro", version = "0.4.5", optional = true }
 
+[dev-dependencies]
+trybuild = "1"
+
 [features]
 default = ["macro"]
 macro = ["dep:nject-macro"]
