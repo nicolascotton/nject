@@ -108,6 +108,23 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
     handle_provider(item).unwrap_or_else(|e| e.to_compile_error().into())
 }
 
+/// Produce a [`Key`] type from a string literal, for use in type position.
+///
+/// ```rust
+/// use nject::{Named, key};
+///
+/// type DbUrl = Named<key!("db_url"), String>;
+/// let url: DbUrl = Named::new("postgres://localhost".into());
+/// assert_eq!(*url, "postgres://localhost");
+/// ```
+#[proc_macro]
+pub fn key(input: TokenStream) -> TokenStream {
+    let lit: syn::LitStr = syn::parse(input).expect("key! expects a string literal");
+    let hash = core::hash::fnv(lit.value().as_bytes());
+    let hash = u128::from_be_bytes(hash);
+    quote::quote! { nject::Key<#hash> }.into()
+}
+
 /// Declare a module to export internal types.
 /// ```rust
 /// use nject::{injectable, provider};
