@@ -6,14 +6,24 @@ use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
 use std::path::PathBuf;
 use std::{ops::Deref, str::FromStr};
-use syn::Token;
 use syn::{
     AngleBracketedGenericArguments, Expr, ExprClosure, Fields, GenericArgument, GenericParam,
     Ident, Pat, PatType, Path, PathSegment, Type,
     parse::{Parse, ParseStream},
     spanned::Spanned,
 };
-
+use syn::{Token, parse_quote};
+pub struct PathWrapper(pub Path);
+impl Parse for PathWrapper {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        Ok(Self(if input.peek(Token![crate]) {
+            let _: Token![crate] = input.parse()?;
+            input.parse()?
+        } else {
+            parse_quote!(::nject)
+        }))
+    }
+}
 pub struct DeriveInput(syn::DeriveInput);
 
 impl Deref for DeriveInput {

@@ -1,8 +1,10 @@
-use crate::core::{DeriveInput, FactoryExpr, FieldFactoryExpr, collection::group_by, error};
+use crate::core::{
+    DeriveInput, FactoryExpr, FieldFactoryExpr, PathWrapper, collection::group_by, error,
+};
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
-    Expr, Field, GenericParam, Ident, Lifetime, LifetimeParam, PatType, Token, Type,
+    Expr, Field, GenericParam, Ident, Lifetime, LifetimeParam, PatType, Path, Token, Type,
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
     spanned::Spanned,
@@ -29,8 +31,10 @@ type ProvideFieldInput = FieldFactoryExpr;
 
 pub(crate) fn handle_provider(
     item: proc_macro::TokenStream,
+    attr: proc_macro::TokenStream,
 ) -> syn::Result<proc_macro::TokenStream> {
     let input = syn::parse::<DeriveInput>(item)?;
+    let path = syn::parse::<PathWrapper>(attr)?.0;
     let ident = &input.ident;
     let fields = input.fields().iter().collect::<Vec<_>>();
     let generic_keys = input.generic_keys();
@@ -88,6 +92,7 @@ pub(crate) fn handle_provider(
         &fields_path_prefix,
         &fields,
         &import_attr_indexes,
+        &path,
     );
     let provide_outputs = gen_providers_for_provide_attr_on_fields(
         ident,
@@ -97,6 +102,7 @@ pub(crate) fn handle_provider(
         &fields_path_prefix,
         &fields,
         &provide_attr_indexes,
+        &path,
     );
     let input_provide_outputs = gen_providers_for_provide_attr_on_struct(
         ident,
@@ -104,38 +110,42 @@ pub(crate) fn handle_provider(
         &generic_keys,
         &where_predicates,
         &provide_input_attr,
+        &path,
     );
-    let scope_output = gen_scope_output(GenScopeOuptutInput {
-        visibility: &input.vis,
-        ident,
-        generic_params: &generic_params,
-        generic_keys: &generic_keys,
-        where_predicates: &where_predicates,
-        fields: &fields,
-        import_attr_indexes: &import_attr_indexes,
-        provide_attr_indexes: &provide_attr_indexes,
-        provide_input_attr: &provide_input_attr,
-        scope_input_attr: &scope_attr,
-    })?;
+    let scope_output = gen_scope_output(
+        GenScopeOuptutInput {
+            visibility: &input.vis,
+            ident,
+            generic_params: &generic_params,
+            generic_keys: &generic_keys,
+            where_predicates: &where_predicates,
+            fields: &fields,
+            import_attr_indexes: &import_attr_indexes,
+            provide_attr_indexes: &provide_attr_indexes,
+            provide_input_attr: &provide_input_attr,
+            scope_input_attr: &scope_attr,
+        },
+        &path,
+    )?;
 
     let output = quote! {
-        #[derive(nject::ProviderHelperAttr)]
+        #[derive(#path::ProviderHelperAttr)]
         #input
 
-        impl<'prov, #(#generic_params,)*Njecty> nject::Provider<'prov, Njecty> for #ident<#(#generic_keys),*>
-        where Njecty: nject::Injectable<'prov, Njecty, #ident<#(#generic_keys),*>>, #where_predicates
+        impl<'prov, #(#generic_params,)*Njecty> #path::Provider<'prov, Njecty> for #ident<#(#generic_keys),*>
+        where Njecty: #path::Injectable<'prov, Njecty, #ident<#(#generic_keys),*>>, #where_predicates
         {
             #[inline]
             fn provide(&'prov self) -> Njecty {
-                Njecty::inject(self)
+                <Njecty as #path::Injectable<'prov, Njecty, #ident<#(#generic_keys),*>>>::inject(self)
             }
         }
 
-        impl<'prov, #(#generic_params,)*Njecty> nject::Provider<'prov, &'prov dyn nject::Provider<'prov, Njecty>> for #ident<#(#generic_keys),*>
-        where Self: nject::Provider<'prov, Njecty>, #where_predicates
+        impl<'prov, #(#generic_params,)*Njecty> #path::Provider<'prov, &'prov dyn #path::Provider<'prov, Njecty>> for #ident<#(#generic_keys),*>
+        where Self: #path::Provider<'prov, Njecty>, #where_predicates
         {
             #[inline]
-            fn provide(&'prov self) -> &'prov dyn nject::Provider<'prov, Njecty> {
+            fn provide(&'prov self) -> &'prov dyn #path::Provider<'prov, Njecty> {
                 self
             }
         }
@@ -145,9 +155,9 @@ pub(crate) fn handle_provider(
         {
             #[inline]
             pub fn provide<'prov, Njecty>(&'prov self) -> Njecty
-            where Self: nject::Provider<'prov, Njecty>
+            where Self: #path::Provider<'prov, Njecty>
             {
-                <Self as nject::Provider<'prov, Njecty>>::provide(self)
+                <Self as #path::Provider<'prov, Njecty>>::provide(self)
             }
         }
 
@@ -155,10 +165,10 @@ pub(crate) fn handle_provider(
         where #where_predicates
         {
             #[inline]
-            pub fn iter<'prov, Value>(&'prov self) -> impl Iterator<Item = Value> + use<'prov #(,#generic_keys)*, Value>
-            where Self: nject::Iterable<'prov, Value>
+            pub fn iter<'prov, Value>(&'prov self) -> impl #path::core::iter::Iterator<Item = Value> + use<'prov #(,#generic_keys)*, Value>
+            where Self: #path::Iterable<'prov, Value>
             {
-                nject::Iterable::<'prov, Value>::iter(self)
+                #path::Iterable::<'prov, Value>::iter(self)
             }
         }
         #(#import_outputs)*
@@ -178,6 +188,7 @@ fn gen_imports_for_import_attr(
     fields_path_prefix: &proc_macro2::TokenStream,
     fields: &[&syn::Field],
     import_attr_indexes: &[usize],
+    path: &Path,
 ) -> Vec<proc_macro2::TokenStream> {
     let imported_modules = import_attr_indexes
         .iter()
@@ -216,32 +227,32 @@ fn gen_imports_for_import_attr(
         });
         let iter_match_outputs = types_by_module.iter().flat_map(|(_, types_for_module)| {
             types_for_module.iter().enumerate().map(|(mod_index, (index, (_, ty, field_key)))| {
-                quote! { #index => nject::RefIterable::<#ty, #ident<#(#generic_keys),*>>::inject(&self.provider.#fields_path_prefix #field_key, self.provider, #mod_index), }
+                quote! { #index => #path::RefIterable::<#ty, #ident<#(#generic_keys),*>>::inject(&self.provider.#fields_path_prefix #field_key, self.provider, #mod_index), }
             })
         });
         quote!{
 
-            impl<'prov, #(#generic_params),*> nject::Iterable<'prov, #ty> for #ident<#(#generic_keys),*>
+            impl<'prov, #(#generic_params),*> #path::Iterable<'prov, #ty> for #ident<#(#generic_keys),*>
                 where #where_predicates
             {
                 #[inline]
-                fn iter(&'prov self) -> impl Iterator<Item = #ty> {
+                fn iter(&'prov self) -> impl #path::core::iter::Iterator<Item = #ty> {
                     struct NjectIterator<'prov, #(#generic_params),*> {
                         provider: &'prov #ident<#(#generic_keys),*>,
                         index: usize,
                     }
-                    impl<'prov, #(#generic_params),*> Iterator for NjectIterator<'prov, #(#generic_keys),*> {
+                    impl<'prov, #(#generic_params),*> #path::core::iter::Iterator for NjectIterator<'prov, #(#generic_keys),*> {
                         type Item = #ty;
 
-                        fn next(&mut self) -> Option<Self::Item> {
+                        fn next(&mut self) -> #path::core::option::Option<Self::Item> {
                             let result = match self.index {
                                 #( #iter_match_outputs )*
                                 _ => {
-                                    return None;
+                                    return #path::core::option::Option::None;
                                 }
                             };
                             self.index += 1;
-                            Some(result)
+                            #path::core::option::Option::Some(result)
                         }
                     }
                     NjectIterator {
@@ -256,12 +267,12 @@ fn gen_imports_for_import_attr(
         let (_, ty, field_key) = types.last().unwrap();
         quote!{
 
-            impl<'prov, #(#generic_params),*> nject::Provider<'prov, #ty> for #ident<#(#generic_keys),*>
+            impl<'prov, #(#generic_params),*> #path::Provider<'prov, #ty> for #ident<#(#generic_keys),*>
                 where #where_predicates
             {
                 #[inline]
                 fn provide(&'prov self) -> #ty {
-                    nject::RefInjectable::<#ty, Self>::inject(&self.#fields_path_prefix #field_key, self)
+                    #path::RefInjectable::<#ty, Self>::inject(&self.#fields_path_prefix #field_key, self)
                 }
             }
         }
@@ -277,7 +288,7 @@ fn gen_imports_for_import_attr(
         };
         quote! {
 
-            impl<#(#generic_params),*> nject::Import<#ty_output> for #ident<#(#generic_keys),*>
+            impl<#(#generic_params),*> #path::Import<#ty_output> for #ident<#(#generic_keys),*>
                 where #where_predicates
             {
                 #[inline]
@@ -301,6 +312,7 @@ fn gen_providers_for_provide_attr_on_fields(
     fields_path_prefix: &proc_macro2::TokenStream,
     fields: &[&syn::Field],
     provide_attr_indexes: &[(usize, Vec<&syn::Attribute>)],
+    path: &Path,
 ) -> Vec<proc_macro2::TokenStream> {
     let provide_outputs = provide_attr_indexes.iter().map(|(i, attrs)| {
         let field = fields[*i];
@@ -356,7 +368,7 @@ fn gen_providers_for_provide_attr_on_fields(
 
             quote! {
 
-                impl<'prov, #(#generic_params),*> nject::Provider<'prov, #ty> for #ident<#(#generic_keys),*>
+                impl<'prov, #(#generic_params),*> #path::Provider<'prov, #ty> for #ident<#(#generic_keys),*>
                     where #where_predicates
                 {
                     #[inline]
@@ -380,6 +392,7 @@ pub(crate) fn gen_providers_for_provide_attr_on_struct(
     generic_keys: &[proc_macro2::TokenStream],
     where_predicates: &proc_macro2::TokenStream,
     provide_input_attr: &[&syn::Attribute],
+    path: &Path,
 ) -> Vec<proc_macro2::TokenStream> {
     let input_provide_outputs = provide_input_attr
         .iter()
@@ -391,7 +404,7 @@ pub(crate) fn gen_providers_for_provide_attr_on_struct(
             };
             quote!{
 
-                impl<'prov, #(#generic_params),*> nject::Provider<'prov, #ty> for #ident<#(#generic_keys),*>
+                impl<'prov, #(#generic_params),*> #path::Provider<'prov, #ty> for #ident<#(#generic_keys),*>
                     where #where_predicates
                 {
                     #[inline]
@@ -431,6 +444,7 @@ fn gen_scope_output(
         provide_input_attr,
         scope_input_attr,
     }: GenScopeOuptutInput<'_>,
+    path: &Path,
 ) -> syn::Result<proc_macro2::TokenStream> {
     if scope_input_attr.is_empty() {
         return Ok(proc_macro2::TokenStream::new());
@@ -478,9 +492,9 @@ fn gen_scope_output(
         });
         let root_path = syn::Index::from(scope_fields.len());
         let fields_path_prefix = quote!{#root_path.};
-        let import_outputs = gen_imports_for_import_attr(&scope_ident, &scope_generic_params, &scope_generic_keys, where_predicates, &fields_path_prefix, fields, import_attr_indexes);
-        let provide_outputs = gen_providers_for_provide_attr_on_fields(&scope_ident, &scope_generic_params, &scope_generic_keys, where_predicates, &fields_path_prefix, fields, provide_attr_indexes);
-        let input_provide_outputs = gen_providers_for_provide_attr_on_struct(&scope_ident, &scope_generic_params, &scope_generic_keys, where_predicates, provide_input_attr);
+        let import_outputs = gen_imports_for_import_attr(&scope_ident, &scope_generic_params, &scope_generic_keys, where_predicates, &fields_path_prefix, fields, import_attr_indexes,path);
+        let provide_outputs = gen_providers_for_provide_attr_on_fields(&scope_ident, &scope_generic_params, &scope_generic_keys, where_predicates, &fields_path_prefix, fields, provide_attr_indexes,path);
+        let input_provide_outputs = gen_providers_for_provide_attr_on_struct(&scope_ident, &scope_generic_params, &scope_generic_keys, where_predicates, provide_input_attr,path);
         let scope_field_provides = scope_fields.iter()
             .enumerate()
             .map(|(i, _)| match arg_scope_fields[i] {
@@ -515,7 +529,7 @@ fn gen_scope_output(
 
             #[provider]
             #[injectable]
-            #[derive(nject::ScopeHelperAttr)]
+            #[derive(#path::ScopeHelperAttr)]
             #visibility struct #scope_ident<'scope, #(#generic_params),*>(#(#scope_field_outputs,)* &'scope #ident<#(#generic_keys),*>)
                 where #where_predicates;
 
