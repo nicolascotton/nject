@@ -277,7 +277,7 @@ mod sub {
 #[provider]
 struct Provider {
     #[import]
-    sub_mod: sub::Module,
+    sub_mod: crate::sub::Module,
 }
 
 fn main() {
@@ -322,10 +322,7 @@ mod sub {
     }
 
     #[injectable]
-    // The absolute public path to access the module. 
-    // If no path is given, the struct name will be used and must be unique across all modules.
-    // Keywords like `crate` and `Self` will be substituted accordingly.
-    #[module(crate::sub::Self)]
+    #[module]
     // Public type exports must be made on the struct (not the fields). 
     // To prevent name collisions, use absolute paths in types.
     #[export(std::boxed::Box<dyn crate::sub::Greeter>, |x: GreeterOne| Box::new(x))]
@@ -341,7 +338,7 @@ mod sub {
 #[provider]
 struct Provider {
     #[import]
-    // To import module public exports, use the absolute path given in its definition.
+    // To import module public exports, use the absolute path to its definition.
     sub_mod: crate::sub::Module,
 }
 
@@ -354,10 +351,8 @@ fn main() {
 }
 ```
 #### Limitations
-1. Public exports are discovered as macros expand. Therefore, modules must expand before their use in any providers.
-   - This limitation is only applicable if **both** module and provider are defined in the same crate. 
-1. Requires `cargo` to build. Run `cargo clean -p nject-macro` to clean the cache if it ever gets corrupted.
 1. Generic parameters are not supported on modules.
+1. Module name must be unique within the same crate.
 
 ### Use modules to export multiple implementations for a public type
 ```rust
@@ -376,14 +371,11 @@ mod one {
     }
 
     #[injectable]
-    // The absolute public path to access the module. 
-    // If no path is given, the struct name will be used and must be unique across all modules.
-    // Keywords like `crate` and `Self` will be substituted accordingly.
-    #[module(crate::one::Self)]
+    #[module]
     // Public type exports must be made on the struct (not the fields). 
     // To prevent name collisions, use absolute paths in types.
     #[export(&'prov dyn crate::Greeter, &self.greeter)]
-    pub struct Module {
+    pub struct OneModule {
         greeter: GreeterOne,
     }
 }
@@ -401,14 +393,11 @@ mod two {
     }
 
     #[injectable]
-    // The absolute public path to access the module. 
-    // If no path is given, the struct name will be used and must be unique across all modules.
-    // Keywords like `crate` and `Self` will be substituted accordingly.
-    #[module(crate::two::Self)]
+    #[module]
     // Public type exports must be made on the struct (not the fields). 
     // To prevent name collisions, use absolute paths in types.
     #[export(&'prov dyn crate::Greeter, &self.greeter)]
-    pub struct Module {
+    pub struct TwoModule {
         greeter: GreeterTwo,
     }
 }
@@ -421,10 +410,9 @@ trait Greeter {
 #[provider]
 struct Provider {
     #[import]
-    // To import module public exports, use the absolute path given in its definition.
-    one: crate::one::Module,
+    one: crate::one::OneModule,
     #[import]
-    two: crate::two::Module,
+    two: crate::two::TwoModule,
 }
 
 fn main() {

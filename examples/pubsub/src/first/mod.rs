@@ -16,7 +16,7 @@ impl super::Subscriber<super::SecondMessage> for Subscriber {
 }
 
 #[injectable]
-#[module(crate::first::Self)]
+#[module]
 #[export(&'prov dyn crate::Subscriber<crate::FirstMessage>, &self.0)]
 #[export(&'prov dyn crate::Subscriber<crate::SecondMessage>, &self.0)]
-pub struct Module(Subscriber);
+pub struct FirstModule(Subscriber);

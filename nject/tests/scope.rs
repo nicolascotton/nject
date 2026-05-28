@@ -237,3 +237,31 @@ impl IntegerOwner for Integer {
         self.0
     }
 }
+
+#[test]
+fn scope_with_imported_module_iterable_should_iterate_exports() {
+    // Given
+    #[injectable]
+    #[module]
+    #[export(&'prov dyn IntegerOwner, &self.0)]
+    #[export(&'prov dyn IntegerOwner, &self.1)]
+    struct ScopeIterModule(
+        #[inject(Integer(1))] Integer,
+        #[inject(Integer(2))] Integer,
+    );
+
+    #[injectable]
+    #[provider]
+    #[scope(#[import] ScopeIterModule)]
+    struct Root;
+
+    #[provider]
+    struct InitProvider;
+
+    let root = InitProvider.provide::<Root>();
+    let scope = root.scope();
+    // When
+    let values: Vec<i32> = scope.iter::<&dyn IntegerOwner>().map(|o| o.value()).collect();
+    // Then
+    assert_eq!(values, vec![1, 2]);
+}

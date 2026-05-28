@@ -1,11 +1,13 @@
 #![allow(clippy::needless_doctest_main)]
 #![doc = include_str!("../README.md")]
 mod core;
+mod finalize;
 mod init;
 mod inject;
 mod injectable;
 mod module;
 mod provider;
+use finalize::handle_finalize_imports;
 use init::handle_init;
 use inject::handle_inject;
 use injectable::handle_injectable;
@@ -128,10 +130,7 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
 ///     }
 ///
 ///     #[injectable]
-///     // The absolute public path to access the module.
-///     // If no path is given, the struct name will be used and must be unique across all modules.
-///     // Keywords like `crate` and `Self` will be substituted accordingly.
-///     #[module(crate::sub::Self)]
+///     #[module]
 ///     // Public type exports must be made on the struct (not the fields).
 ///     // To prevent name collisions, use absolute paths in types.
 ///     #[export(std::rc::Rc<i32>, self.public.clone())]
@@ -147,7 +146,7 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
 /// #[provider]
 /// struct Provider {
 ///     #[import]
-///     // To import module public exports, use the absolute path given in its definition.
+///     // To import module public exports, use the absolute path to its definition.
 ///     sub_mod: crate::sub::Module,
 /// }
 ///
@@ -230,4 +229,11 @@ pub fn module(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn init(item: TokenStream) -> TokenStream {
     handle_init(item).unwrap_or_else(|e| e.to_compile_error().into())
+}
+
+/// For internal purposes only. Should not be used.
+#[doc(hidden)]
+#[proc_macro]
+pub fn __nject_finalize_imports(item: TokenStream) -> TokenStream {
+    handle_finalize_imports(item).unwrap_or_else(|e| e.to_compile_error().into())
 }

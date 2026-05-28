@@ -179,118 +179,200 @@ fn gen_imports_for_import_attr(
     fields: &[&syn::Field],
     import_attr_indexes: &[usize],
 ) -> Vec<proc_macro2::TokenStream> {
-    let imported_modules = import_attr_indexes
+    let imported_modules: Vec<_> = import_attr_indexes
         .iter()
         .map(|i| {
             let field = fields[*i];
             let ty = &field.ty;
-            let import_key = super::module::models::ModuleKey::from(ty);
-            let import = super::module::repository::get(&import_key);
             let index = syn::Index::from(*i);
             let field_key = match &field.ident {
                 Some(i) => quote! { #i },
                 None => quote! { #index },
             };
-            (import, field_key, field)
+            (field_key, field, ty)
         })
-        .collect::<Vec<_>>();
-    let exported_types = imported_modules.iter().flat_map(|(module, field_key, _)| {
-        module
-            .as_ref()
-            .map(|m| {
-                m.exported_types()
-                    .iter()
-                    .map(|t| (m.to_owned(), t.to_owned()))
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default()
-            .iter()
-            .map(|(m, t)| (m.to_owned(), t.to_owned(), field_key))
-            .collect::<Vec<_>>()
-    });
-    let exported_types = group_by(exported_types, |(_, t, _)| quote! { #t }.to_string());
-    let import_iter_outputs = exported_types.values().map(|types| {
-        let (_, ty, _) = types.first().unwrap();
-        let types_by_module = group_by(types.iter().enumerate(), |(_, (m, _, _))| {
-            m.key().unwrap()
-        });
-        let iter_match_outputs = types_by_module.iter().flat_map(|(_, types_for_module)| {
-            types_for_module.iter().enumerate().map(|(mod_index, (index, (_, ty, field_key)))| {
-                quote! { #index => nject::RefIterable::<#ty, #ident<#(#generic_keys),*>>::inject(&self.provider.#fields_path_prefix #field_key, self.provider, #mod_index), }
-            })
-        });
-        quote!{
+        .collect();
 
-            impl<'prov, #(#generic_params),*> nject::Iterable<'prov, #ty> for #ident<#(#generic_keys),*>
-                where #where_predicates
-            {
-                #[inline]
-                fn iter(&'prov self) -> impl Iterator<Item = #ty> {
-                    struct NjectIterator<'prov, #(#generic_params),*> {
-                        provider: &'prov #ident<#(#generic_keys),*>,
-                        index: usize,
-                    }
-                    impl<'prov, #(#generic_params),*> Iterator for NjectIterator<'prov, #(#generic_keys),*> {
-                        type Item = #ty;
+    // Generate Import<Module> impls
+    let import_impl_outputs: Vec<proc_macro2::TokenStream> = imported_modules
+        .iter()
+        .map(|(field_key, _field, ty)| {
+            let ty_output = match ty {
+                Type::Reference(r) => {
+                    let inner_ty = &r.elem;
+                    quote! { #inner_ty }
+                }
+                _ => quote! { #ty },
+            };
+            quote! {
 
-                        fn next(&mut self) -> Option<Self::Item> {
-                            let result = match self.index {
-                                #( #iter_match_outputs )*
-                                _ => {
-                                    return None;
-                                }
-                            };
-                            self.index += 1;
-                            Some(result)
-                        }
-                    }
-                    NjectIterator {
-                        provider: self,
-                        index: 0,
+                impl<#(#generic_params),*> nject::Import<#ty_output> for #ident<#(#generic_keys),*>
+                    where #where_predicates
+                {
+                    #[inline]
+                    fn reference(&self) -> & #ty_output {
+                        &self.#fields_path_prefix #field_key
                     }
                 }
             }
-        }
-    });
-    let import_prov_outputs = exported_types.values().map(|types| {
-        let (_, ty, field_key) = types.last().unwrap();
-        quote!{
+        })
+        .collect();
 
-            impl<'prov, #(#generic_params),*> nject::Provider<'prov, #ty> for #ident<#(#generic_keys),*>
-                where #where_predicates
-            {
-                #[inline]
-                fn provide(&'prov self) -> #ty {
-                    nject::RefInjectable::<#ty, Self>::inject(&self.#fields_path_prefix #field_key, self)
-                }
-            }
-        }
-    });
-    let import_impl_outputs = imported_modules.iter().map(|(_, field_key, field)| {
-        let ty = &field.ty;
-        let ty_output = match ty {
-            Type::Reference(r) => {
-                let inner_ty = &r.elem;
-                quote! { #inner_ty }
-            }
-            _ => quote! { #ty },
-        };
-        quote! {
+    // Generate chain invocation for the macro-based system
+    let chain_output = gen_chain_invocation(
+        ident,
+        generic_params,
+        generic_keys,
+        where_predicates,
+        fields_path_prefix,
+        fields,
+        import_attr_indexes,
+    );
 
-            impl<#(#generic_params),*> nject::Import<#ty_output> for #ident<#(#generic_keys),*>
-                where #where_predicates
-            {
-                #[inline]
-                fn reference(&self) -> & #ty_output {
-                    &self.#fields_path_prefix #field_key
-                }
-            }
+    let mut outputs = import_impl_outputs;
+    if let Some(chain) = chain_output {
+        outputs.push(chain);
+    }
+    outputs
+}
+
+/// Generate the chain invocation that starts the module macro chain.
+/// This replaces the disk-based lookup system.
+fn gen_chain_invocation(
+    ident: &Ident,
+    generic_params: &[&GenericParam],
+    generic_keys: &[proc_macro2::TokenStream],
+    where_predicates: &proc_macro2::TokenStream,
+    fields_path_prefix: &proc_macro2::TokenStream,
+    fields: &[&syn::Field],
+    import_attr_indexes: &[usize],
+) -> Option<proc_macro2::TokenStream> {
+    if import_attr_indexes.is_empty() {
+        return None;
+    }
+
+    // Build the list of module info for the chain
+    let module_infos: Vec<_> = import_attr_indexes
+        .iter()
+        .map(|i| {
+            let field = fields[*i];
+            let ty = &field.ty;
+            let index = syn::Index::from(*i);
+            let field_key = match &field.ident {
+                Some(ident) => quote! { #ident },
+                None => quote! { #index },
+            };
+
+            // Extract the module path and compute the macro path
+            let (macro_path, module_args) = match extract_module_macro_path(ty) {
+                Ok(result) => result,
+                Err(e) => (e.to_compile_error(), quote! {}),
+            };
+
+            (macro_path, field_key, module_args)
+        })
+        .collect();
+
+    if module_infos.is_empty() {
+        return None;
+    }
+
+    // Build the `next` list (all modules except the first)
+    let next_entries: Vec<proc_macro2::TokenStream> = module_infos[1..]
+        .iter()
+        .map(|(macro_path, field_key, module_args)| {
+            quote! { (#macro_path, [#field_key], [#module_args]) }
+        })
+        .collect();
+
+    let next_list = quote! { #(#next_entries),* };
+
+    // First module info
+    let (first_macro_path, first_field_key, first_module_args) = &module_infos[0];
+
+    // Provider context info
+    let provider_generics = quote! { #(#generic_params),* };
+    let provider_type = quote! { #ident<#(#generic_keys),*> };
+
+    // Generate the chain start invocation
+    Some(quote! {
+        #first_macro_path! {
+            @nject_collect
+            next = [#next_list],
+            field = [#first_field_key],
+            module_args = [#first_module_args],
+            exports = [],
+            provider_generics = [#provider_generics],
+            provider_type = [#provider_type],
+            where_clause = [#where_predicates],
+            fields_prefix = [#fields_path_prefix],
         }
-    });
-    import_impl_outputs
-        .chain(import_prov_outputs)
-        .chain(import_iter_outputs)
-        .collect()
+    })
+}
+
+/// Extract the macro path from a module type.
+/// Given a type like `crate::sub::MyModule` or `other_crate::MyModule`,
+/// returns the macro invocation path and the generic args (if any).
+///
+/// Rules:
+/// - `crate::...::Module` → same crate → bare `__nject_module_Module`
+/// - `self::...::Module` → same crate → bare `__nject_module_Module`
+/// - `super::...::Module` → same crate → bare `__nject_module_Module`
+/// - `Module` (single segment) → same crate → bare `__nject_module_Module`
+/// - `external_crate::...::Module` → external → `external_crate::__nject_module_Module`
+///
+/// The macro name is based solely on the struct name (last segment).
+/// Module struct names must be unique within a single crate.
+fn extract_module_macro_path(ty: &Type) -> syn::Result<(proc_macro2::TokenStream, proc_macro2::TokenStream)> {
+    let path = match ty {
+        Type::Path(p) => &p.path,
+        Type::Reference(r) => match &*r.elem {
+            Type::Path(p) => &p.path,
+            _ => return Err(syn::Error::new_spanned(ty, "Unsupported import type: expected a path type")),
+        },
+        _ => return Err(syn::Error::new_spanned(ty, "Unsupported import type: expected a path type")),
+    };
+
+    let segments: Vec<_> = path.segments.iter().collect();
+    if segments.is_empty() {
+        return Err(syn::Error::new_spanned(ty, "Empty path for import type"));
+    }
+
+    // The last segment is the struct name
+    let last_segment = segments.last().unwrap();
+    let struct_name = &last_segment.ident;
+    let macro_name = format_ident!("__nject_module_{}", struct_name);
+
+    // Extract generic args from the last segment
+    let module_args = match &last_segment.arguments {
+        syn::PathArguments::None => quote! {},
+        syn::PathArguments::AngleBracketed(args) => {
+            let args_iter = &args.args;
+            quote! { #args_iter }
+        }
+        syn::PathArguments::Parenthesized(_) => quote! {},
+    };
+
+    if segments.len() == 1 {
+        // Single segment like `MyModule` - same crate, bare name
+        return Ok((quote! { #macro_name }, module_args));
+    }
+
+    let first_segment_name = segments[0].ident.to_string();
+    let is_same_crate = first_segment_name == "crate"
+        || first_segment_name == "self"
+        || first_segment_name == "super";
+
+    let macro_path = if is_same_crate {
+        // Same crate - use bare name (macro_export puts it at crate root)
+        quote! { #macro_name }
+    } else {
+        // External crate - use crate_name::macro_name
+        let crate_prefix = &segments[0].ident;
+        quote! { #crate_prefix :: #macro_name }
+    };
+
+    Ok((macro_path, module_args))
 }
 
 fn gen_providers_for_provide_attr_on_fields(

@@ -4,8 +4,8 @@
 
 #[cfg(feature = "macro")]
 pub use nject_macro::{
-    InjectableHelperAttr, ModuleHelperAttr, ProviderHelperAttr, ScopeHelperAttr, init, inject,
-    injectable, module, provider,
+    InjectableHelperAttr, ModuleHelperAttr, ProviderHelperAttr, ScopeHelperAttr,
+    __nject_finalize_imports, init, inject, injectable, module, provider,
 };
 
 /// Provide a value for a specified type. Should be used with the `provide` macro for a better experience.
@@ -77,7 +77,7 @@ pub trait Injectable<'prov, Injecty, Provider> {
 ///
 ///     #[injectable]
 ///     #[module]
-///     pub struct Module {
+///     pub struct SubModule {
 ///         #[export]
 ///         hidden: InternalType
 ///     }
@@ -85,16 +85,15 @@ pub trait Injectable<'prov, Injecty, Provider> {
 ///
 /// #[injectable]
 /// #[provider]
-/// struct Provider {
-///     #[import]
-///     subModule: sub::Module
-/// }
+/// struct Provider(#[import] crate::sub::SubModule);
 ///
 /// #[provider]
 /// struct InitProvider;
 ///
-/// let provider = InitProvider.provide::<Provider>();
-/// let facade = provider.provide::<sub::Facade>();
+/// fn main() {
+///     let provider = InitProvider.provide::<Provider>();
+///     let facade = provider.provide::<sub::Facade>();
+/// }
 /// ```
 pub trait Import<Module> {
     fn reference(&self) -> &Module;
@@ -116,4 +115,37 @@ pub trait RefIterable<'prov, Value, Provider> {
 #[doc(hidden)]
 pub trait Iterable<'prov, T> {
     fn iter(&'prov self) -> impl Iterator<Item = T>;
+}
+
+/// For internal purposes only. Should not be used.
+/// Orchestrates chaining through module macros, accumulating exports.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __nject_next {
+    // Recursive case: more modules to process
+    (
+        next = [($next_macro:path, [$($next_field:tt)*], [$($next_args:tt)*]) $(, ($($remaining:tt)*))*],
+        exports = [$($exports:tt)*],
+        $($provider_info:tt)*
+    ) => {
+        $next_macro! {
+            @nject_collect
+            next = [$(($($remaining)*)),*],
+            field = [$($next_field)*],
+            module_args = [$($next_args)*],
+            exports = [$($exports)*],
+            $($provider_info)*
+        }
+    };
+    // Base case: no more modules → call finalizer
+    (
+        next = [],
+        exports = [$($exports:tt)*],
+        $($provider_info:tt)*
+    ) => {
+        ::nject::__nject_finalize_imports! {
+            exports = [$($exports)*],
+            $($provider_info)*
+        }
+    };
 }
