@@ -121,3 +121,35 @@ fn by_ref_dyn_from_multiple(b: &mut Bencher) {
         }
     });
 }
+
+#[bench]
+fn iter_by_value_from_scope(b: &mut Bencher) {
+    #[provider]
+    #[injectable]
+    #[scope(#[import] crate::MultiExportModule)]
+    struct MultiProvider;
+    let scope = MultiProvider.scope();
+    b.iter(move || {
+        for _ in 0..ITERATION_COUNT {
+            test::black_box(for x in scope.iter::<MultiDep>() {
+                let _ = x;
+            });
+        }
+    });
+}
+
+#[bench]
+fn iter_by_dyn_ref_from_scope(b: &mut Bencher) {
+    #[provider]
+    #[injectable]
+    #[scope(#[import] crate::MultiExportModule)]
+    struct MultiProvider;
+    let scope = MultiProvider.scope();
+    b.iter(move || {
+        for _ in 0..ITERATION_COUNT {
+            test::black_box(for x in scope.iter::<&dyn MultiTrait>() {
+                let _ = x;
+            });
+        }
+    });
+}

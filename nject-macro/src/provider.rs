@@ -375,6 +375,150 @@ fn extract_module_macro_path(ty: &Type) -> syn::Result<(proc_macro2::TokenStream
     Ok((macro_path, module_args))
 }
 
+/// Generate unified imports for a scope that combines both root's imports and scope's own imports
+/// into a single chain invocation. This ensures that Provider<T> and Iterable<T> impls are
+/// properly merged when multiple modules export the same type.
+fn gen_unified_scope_imports(
+    scope_ident: &Ident,
+    scope_generic_params: &[&GenericParam],
+    scope_generic_keys: &[proc_macro2::TokenStream],
+    where_predicates: &proc_macro2::TokenStream,
+    root_path: &syn::Index,
+    root_fields: &[&syn::Field],
+    root_import_attr_indexes: &[usize],
+    scope_fields: &[&syn::Field],
+    scope_import_field_indexes: &[usize],
+) -> Vec<proc_macro2::TokenStream> {
+    // Build Import<Module> impls for root's modules (accessed via root reference)
+    let root_import_impls: Vec<proc_macro2::TokenStream> = root_import_attr_indexes
+        .iter()
+        .map(|i| {
+            let field = root_fields[*i];
+            let ty = &field.ty;
+            let index = syn::Index::from(*i);
+            let field_key = match &field.ident {
+                Some(ident) => quote! { #ident },
+                None => quote! { #index },
+            };
+            let ty_output = match ty {
+                Type::Reference(r) => {
+                    let inner_ty = &r.elem;
+                    quote! { #inner_ty }
+                }
+                _ => quote! { #ty },
+            };
+            quote! {
+                impl<#(#scope_generic_params),*> nject::Import<#ty_output> for #scope_ident<#(#scope_generic_keys),*>
+                    where #where_predicates
+                {
+                    #[inline]
+                    fn reference(&self) -> & #ty_output {
+                        &self.#root_path.#field_key
+                    }
+                }
+            }
+        })
+        .collect();
+
+    // Build Import<Module> impls for scope's own modules (direct fields)
+    let scope_import_impls: Vec<proc_macro2::TokenStream> = scope_import_field_indexes
+        .iter()
+        .map(|i| {
+            let field = scope_fields[*i];
+            let ty = &field.ty;
+            let index = syn::Index::from(*i);
+            let ty_output = match ty {
+                Type::Reference(r) => {
+                    let inner_ty = &r.elem;
+                    quote! { #inner_ty }
+                }
+                _ => quote! { #ty },
+            };
+            quote! {
+                impl<#(#scope_generic_params),*> nject::Import<#ty_output> for #scope_ident<#(#scope_generic_keys),*>
+                    where #where_predicates
+                {
+                    #[inline]
+                    fn reference(&self) -> & #ty_output {
+                        &self.#index
+                    }
+                }
+            }
+        })
+        .collect();
+
+    // Build unified module info for the chain (both root and scope modules combined)
+    let mut all_module_infos: Vec<(proc_macro2::TokenStream, proc_macro2::TokenStream, proc_macro2::TokenStream)> = Vec::new();
+
+    // Root's modules: accessed via self.{root_path}.{field_key}
+    for i in root_import_attr_indexes {
+        let field = root_fields[*i];
+        let ty = &field.ty;
+        let index = syn::Index::from(*i);
+        let field_key = match &field.ident {
+            Some(ident) => quote! { #root_path.#ident },
+            None => quote! { #root_path.#index },
+        };
+        let (macro_path, module_args) = match extract_module_macro_path(ty) {
+            Ok(result) => result,
+            Err(e) => (e.to_compile_error(), quote! {}),
+        };
+        all_module_infos.push((macro_path, field_key, module_args));
+    }
+
+    // Scope's own modules: accessed via self.{scope_field_index}
+    for i in scope_import_field_indexes {
+        let field = scope_fields[*i];
+        let ty = &field.ty;
+        let index = syn::Index::from(*i);
+        let field_key = quote! { #index };
+        let (macro_path, module_args) = match extract_module_macro_path(ty) {
+            Ok(result) => result,
+            Err(e) => (e.to_compile_error(), quote! {}),
+        };
+        all_module_infos.push((macro_path, field_key, module_args));
+    }
+
+    let mut outputs = Vec::new();
+    outputs.extend(root_import_impls);
+    outputs.extend(scope_import_impls);
+
+    // Generate the unified chain invocation if there are any imports
+    if !all_module_infos.is_empty() {
+        let next_entries: Vec<proc_macro2::TokenStream> = all_module_infos[1..]
+            .iter()
+            .map(|(macro_path, field_key, module_args)| {
+                quote! { (#macro_path, [#field_key], [#module_args]) }
+            })
+            .collect();
+
+        let next_list = quote! { #(#next_entries),* };
+
+        let (first_macro_path, first_field_key, first_module_args) = &all_module_infos[0];
+
+        let provider_generics = quote! { #(#scope_generic_params),* };
+        let provider_type = quote! { #scope_ident<#(#scope_generic_keys),*> };
+
+        // Use empty fields_prefix since each field_key encodes its full path
+        let chain = quote! {
+            #first_macro_path! {
+                @nject_collect
+                next = [#next_list],
+                field = [#first_field_key],
+                module_args = [#first_module_args],
+                exports = [],
+                provider_generics = [#provider_generics],
+                provider_type = [#provider_type],
+                where_clause = [#where_predicates],
+                fields_prefix = [],
+            }
+        };
+        outputs.push(chain);
+    }
+
+    outputs
+}
+
 fn gen_providers_for_provide_attr_on_fields(
     ident: &Ident,
     generic_params: &[&GenericParam],
@@ -553,14 +697,29 @@ fn gen_scope_output(
                 syn::Meta::Path(p) => p.is_ident("arg"),
                 _ => false,
             }).is_some()).collect::<Vec<_>>();
+        // Strip #[import] from scope field outputs so #[provider] on the scope struct
+        // doesn't process them independently (we handle them in the unified chain below)
         let scope_field_outputs = scope_fields.iter().map(|f| {
             let mut f = f.to_owned().to_owned();
             f.ident = None;
+            f.attrs.retain(|a| !a.path().is_ident("import"));
             quote!{#[provide] #f}
         });
         let root_path = syn::Index::from(scope_fields.len());
         let fields_path_prefix = quote!{#root_path.};
-        let import_outputs = gen_imports_for_import_attr(&scope_ident, &scope_generic_params, &scope_generic_keys, where_predicates, &fields_path_prefix, fields, import_attr_indexes);
+        // Identify scope fields that have #[import]
+        let scope_import_field_indexes: Vec<usize> = scope_fields.iter()
+            .enumerate()
+            .filter(|(_, f)| f.attrs.iter().any(|a| a.path().is_ident("import")))
+            .map(|(i, _)| i)
+            .collect();
+        // Generate unified imports: combines root's imports + scope's own imports
+        // into a single chain so Provider<T> and Iterable<T> impls are merged.
+        let import_outputs = gen_unified_scope_imports(
+            &scope_ident, &scope_generic_params, &scope_generic_keys,
+            where_predicates, &root_path, fields, import_attr_indexes,
+            scope_fields, &scope_import_field_indexes,
+        );
         let provide_outputs = gen_providers_for_provide_attr_on_fields(&scope_ident, &scope_generic_params, &scope_generic_keys, where_predicates, &fields_path_prefix, fields, provide_attr_indexes);
         let input_provide_outputs = gen_providers_for_provide_attr_on_struct(&scope_ident, &scope_generic_params, &scope_generic_keys, where_predicates, provide_input_attr);
         let scope_field_provides = scope_fields.iter()
