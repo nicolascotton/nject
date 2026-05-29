@@ -353,6 +353,7 @@ fn main() {
 #### Limitations
 1. Generic parameters are not supported on modules.
 1. Module name must be unique within the same crate.
+1. Importing a re-exported module from an external crate is not supported. The module must be imported directly from the crate where it is defined.
 
 ### Use modules to export multiple implementations for a public type
 ```rust

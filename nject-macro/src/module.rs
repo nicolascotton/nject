@@ -6,7 +6,7 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
 use syn::{
-    Expr, GenericParam, PatType, Path, Token, Type,
+    Expr, GenericParam, PatType, Token, Type,
     parse::{Parse, ParseStream},
     spanned::Spanned,
 };
@@ -31,18 +31,8 @@ impl Parse for ExportStructInput {
 
 type ExportFieldInput = FieldFactoryExpr;
 
-pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> {
+pub(crate) fn handle_module(_attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> {
     let input = syn::parse::<DeriveInput>(item)?;
-    // Parse the module path attribute if present (kept for backward compatibility)
-    let _module_pub_path = match attr.is_empty() {
-        true => None,
-        false => {
-            let path = syn::parse::<Path>(attr).map_err(|e| {
-                error::combine(syn::Error::new(e.span(), "Invalid public module path"), e)
-            })?;
-            Some(path)
-        }
-    };
     let ident = &input.ident;
     let fields = input.fields().iter().collect::<Vec<_>>();
     let struct_exports = input

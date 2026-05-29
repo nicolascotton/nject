@@ -3,8 +3,7 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{
-    Ident, Token,
-    braced,
+    Ident, Token, braced,
     parse::{Parse, ParseStream},
 };
 
@@ -88,7 +87,10 @@ impl Parse for FinalizeInput {
         // provider_generics = [...]
         let pg_ident: Ident = input.parse()?;
         if pg_ident != "provider_generics" {
-            return Err(syn::Error::new(pg_ident.span(), "expected `provider_generics`"));
+            return Err(syn::Error::new(
+                pg_ident.span(),
+                "expected `provider_generics`",
+            ));
         }
         input.parse::<Token![=]>()?;
         let pg_content;
@@ -154,8 +156,7 @@ pub(crate) fn handle_finalize_imports(item: TokenStream) -> syn::Result<TokenStr
     let fields_prefix = &input.fields_prefix;
 
     // Group exports by type (string representation for grouping)
-    let exports_with_index: Vec<(usize, &ExportEntry)> =
-        input.exports.iter().enumerate().collect();
+    let exports_with_index: Vec<(usize, &ExportEntry)> = input.exports.iter().enumerate().collect();
 
     let grouped = group_by(exports_with_index.iter(), |(_, e)| e.ty.to_string());
 
@@ -181,22 +182,11 @@ pub(crate) fn handle_finalize_imports(item: TokenStream) -> syn::Result<TokenStr
 
         // Generate Iterable<T> if there are multiple exports of this type
         if entries.len() > 1 {
-            let _iter_match_arms: Vec<TokenStream2> = entries
-                .iter()
-                .enumerate()
-                .map(|(iter_index, (_, entry))| {
-                    let entry_field = &entry.field;
-                    let entry_ty = &entry.ty;
-                    quote! {
-                        #iter_index => nject::RefIterable::<#entry_ty, #provider_type>::inject(&self.provider.#fields_prefix #entry_field, self.provider, 0),
-                    }
-                })
-                .collect();
-
             // We need to track per-field sub-indexes for RefIterable.
             // Group entries by field to compute sub-indexes correctly.
             let iter_match_arms_with_subindex: Vec<TokenStream2> = {
-                let mut field_counters: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+                let mut field_counters: std::collections::HashMap<String, usize> =
+                    std::collections::HashMap::new();
                 entries
                     .iter()
                     .enumerate()
