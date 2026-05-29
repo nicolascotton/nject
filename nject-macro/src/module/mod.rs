@@ -1,4 +1,7 @@
-use crate::core::{DeriveInput, FactoryExpr, FieldFactoryExpr, collection::group_by, error};
+use crate::core::{
+    DeriveInput, FactoryExpr, FieldFactoryExpr, NJECT_MODULE_MACRO_PREFIX, collection::group_by,
+    error,
+};
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{format_ident, quote};
@@ -249,7 +252,7 @@ fn gen_module_macro(
     generic_params: &[&GenericParam],
     struct_type_exports: &[&Type],
 ) -> TokenStream2 {
-    let macro_name = format_ident!("__nject_module_{}", ident);
+    let macro_name = format_ident!("{}{}", NJECT_MODULE_MACRO_PREFIX, ident);
 
     // To emit $ in macro_rules! from a proc macro, we use a dollar-sign token
     let dollar = proc_macro2::Punct::new('$', proc_macro2::Spacing::Alone);
@@ -295,6 +298,7 @@ fn gen_module_macro(
     };
 
     quote! {
+        /// For internal purposes only. Should not be used.
         #[allow(non_local_definitions)]
         #[doc(hidden)]
         #[macro_export]
@@ -318,4 +322,3 @@ fn gen_module_macro(
         }
     }
 }
-

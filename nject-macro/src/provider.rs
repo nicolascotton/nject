@@ -1,4 +1,7 @@
-use crate::core::{DeriveInput, FactoryExpr, FieldFactoryExpr, collection::group_by, error};
+use crate::core::{
+    DeriveInput, FactoryExpr, FieldFactoryExpr, NJECT_MODULE_MACRO_PREFIX, collection::group_by,
+    error,
+};
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
@@ -323,14 +326,26 @@ fn gen_chain_invocation(
 ///
 /// The macro name is based solely on the struct name (last segment).
 /// Module struct names must be unique within a single crate.
-fn extract_module_macro_path(ty: &Type) -> syn::Result<(proc_macro2::TokenStream, proc_macro2::TokenStream)> {
+fn extract_module_macro_path(
+    ty: &Type,
+) -> syn::Result<(proc_macro2::TokenStream, proc_macro2::TokenStream)> {
     let path = match ty {
         Type::Path(p) => &p.path,
         Type::Reference(r) => match &*r.elem {
             Type::Path(p) => &p.path,
-            _ => return Err(syn::Error::new_spanned(ty, "Unsupported import type: expected a path type")),
+            _ => {
+                return Err(syn::Error::new_spanned(
+                    ty,
+                    "Unsupported import type: expected a path type",
+                ));
+            }
         },
-        _ => return Err(syn::Error::new_spanned(ty, "Unsupported import type: expected a path type")),
+        _ => {
+            return Err(syn::Error::new_spanned(
+                ty,
+                "Unsupported import type: expected a path type",
+            ));
+        }
     };
 
     let segments: Vec<_> = path.segments.iter().collect();
@@ -341,7 +356,7 @@ fn extract_module_macro_path(ty: &Type) -> syn::Result<(proc_macro2::TokenStream
     // The last segment is the struct name
     let last_segment = segments.last().unwrap();
     let struct_name = &last_segment.ident;
-    let macro_name = format_ident!("__nject_module_{}", struct_name);
+    let macro_name = format_ident!("{}{}", NJECT_MODULE_MACRO_PREFIX, struct_name);
 
     // Extract generic args from the last segment
     let module_args = match &last_segment.arguments {
@@ -448,7 +463,11 @@ fn gen_unified_scope_imports(
         .collect();
 
     // Build unified module info for the chain (both root and scope modules combined)
-    let mut all_module_infos: Vec<(proc_macro2::TokenStream, proc_macro2::TokenStream, proc_macro2::TokenStream)> = Vec::new();
+    let mut all_module_infos: Vec<(
+        proc_macro2::TokenStream,
+        proc_macro2::TokenStream,
+        proc_macro2::TokenStream,
+    )> = Vec::new();
 
     // Root's modules: accessed via self.{root_path}.{field_key}
     for i in root_import_attr_indexes {
