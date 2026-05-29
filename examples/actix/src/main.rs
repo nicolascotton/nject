@@ -17,7 +17,7 @@ async fn main() -> std::io::Result<()> {
 
     let provider = Data::new(Provider::new(DB_URL));
     let addr = ("127.0.0.1", 8080);
-    println!("listening on {}:{}", &addr.0, &addr.1);
+    println!("listening on {}:{}", addr.0, addr.1);
     HttpServer::new(move || setup_app(provider.clone()))
         .bind(addr)?
         .run()

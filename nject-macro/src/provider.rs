@@ -390,19 +390,33 @@ fn extract_module_macro_path(
     Ok((macro_path, module_args))
 }
 
+struct GenUnifiedScopeImportsInput<'a> {
+    scope_ident: &'a Ident,
+    scope_generic_params: &'a [&'a GenericParam],
+    scope_generic_keys: &'a [proc_macro2::TokenStream],
+    where_predicates: &'a proc_macro2::TokenStream,
+    root_path: &'a syn::Index,
+    root_fields: &'a [&'a syn::Field],
+    root_import_attr_indexes: &'a [usize],
+    scope_fields: &'a [&'a syn::Field],
+    scope_import_field_indexes: &'a [usize],
+}
+
 /// Generate unified imports for a scope that combines both root's imports and scope's own imports
 /// into a single chain invocation. This ensures that Provider<T> and Iterable<T> impls are
 /// properly merged when multiple modules export the same type.
 fn gen_unified_scope_imports(
-    scope_ident: &Ident,
-    scope_generic_params: &[&GenericParam],
-    scope_generic_keys: &[proc_macro2::TokenStream],
-    where_predicates: &proc_macro2::TokenStream,
-    root_path: &syn::Index,
-    root_fields: &[&syn::Field],
-    root_import_attr_indexes: &[usize],
-    scope_fields: &[&syn::Field],
-    scope_import_field_indexes: &[usize],
+    GenUnifiedScopeImportsInput {
+        scope_ident,
+        scope_generic_params,
+        scope_generic_keys,
+        where_predicates,
+        root_path,
+        root_fields,
+        root_import_attr_indexes,
+        scope_fields,
+        scope_import_field_indexes,
+    }: GenUnifiedScopeImportsInput<'_>,
 ) -> Vec<proc_macro2::TokenStream> {
     // Build Import<Module> impls for root's modules (accessed via root reference)
     let root_import_impls: Vec<proc_macro2::TokenStream> = root_import_attr_indexes
@@ -734,11 +748,17 @@ fn gen_scope_output(
             .collect();
         // Generate unified imports: combines root's imports + scope's own imports
         // into a single chain so Provider<T> and Iterable<T> impls are merged.
-        let import_outputs = gen_unified_scope_imports(
-            &scope_ident, &scope_generic_params, &scope_generic_keys,
-            where_predicates, &root_path, fields, import_attr_indexes,
-            scope_fields, &scope_import_field_indexes,
-        );
+        let import_outputs = gen_unified_scope_imports(GenUnifiedScopeImportsInput {
+            scope_ident: &scope_ident,
+            scope_generic_params: &scope_generic_params,
+            scope_generic_keys: &scope_generic_keys,
+            where_predicates,
+            root_path: &root_path,
+            root_fields: fields,
+            root_import_attr_indexes: import_attr_indexes,
+            scope_fields,
+            scope_import_field_indexes: &scope_import_field_indexes,
+        });
         let provide_outputs = gen_providers_for_provide_attr_on_fields(&scope_ident, &scope_generic_params, &scope_generic_keys, where_predicates, &fields_path_prefix, fields, provide_attr_indexes);
         let input_provide_outputs = gen_providers_for_provide_attr_on_struct(&scope_ident, &scope_generic_params, &scope_generic_keys, where_predicates, provide_input_attr);
         let scope_field_provides = scope_fields.iter()

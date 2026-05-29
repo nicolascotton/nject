@@ -224,6 +224,7 @@ pub(crate) fn handle_module(_attr: TokenStream, item: TokenStream) -> syn::Resul
 
     let output = quote! {
         #[derive(nject::ModuleHelperAttr)]
+        #[allow(clippy::duplicated_attributes)]
         #input
         #(#struct_export_outputs)*
         #(#export_outputs)*
@@ -290,6 +291,7 @@ fn gen_module_macro(
     quote! {
         /// For internal purposes only. Should not be used.
         #[allow(non_local_definitions)]
+        #[allow(clippy::crate_in_macro_def)]
         #[doc(hidden)]
         #[macro_export]
         macro_rules! #macro_name {

@@ -162,7 +162,7 @@ pub(crate) fn handle_finalize_imports(item: TokenStream) -> syn::Result<TokenStr
 
     let mut outputs = Vec::new();
 
-    for (_ty_key, entries) in &grouped {
+    for entries in grouped.values() {
         let (_, last_entry) = entries.last().unwrap();
         let ty = &last_entry.ty;
         let field = &last_entry.field;
