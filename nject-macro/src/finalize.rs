@@ -180,63 +180,61 @@ pub(crate) fn handle_finalize_imports(item: TokenStream) -> syn::Result<TokenStr
         };
         outputs.push(provider_impl);
 
-        // Generate Iterable<T> if there are multiple exports of this type
-        if entries.len() > 1 {
-            // We need to track per-field sub-indexes for RefIterable.
-            // Group entries by field to compute sub-indexes correctly.
-            let iter_match_arms_with_subindex: Vec<TokenStream2> = {
-                let mut field_counters: std::collections::HashMap<String, usize> =
-                    std::collections::HashMap::new();
-                entries
-                    .iter()
-                    .enumerate()
-                    .map(|(iter_index, (_, entry))| {
-                        let entry_field = &entry.field;
-                        let entry_ty = &entry.ty;
-                        let field_key = entry_field.to_string();
-                        let sub_index = *field_counters.get(&field_key).unwrap_or(&0);
-                        field_counters.insert(field_key, sub_index + 1);
-                        let sub_index_lit = syn::LitInt::new(&sub_index.to_string(), proc_macro2::Span::call_site());
-                        quote! {
-                            #iter_index => nject::RefIterable::<#entry_ty, #provider_type>::inject(&self.provider.#fields_prefix #entry_field, self.provider, #sub_index_lit),
-                        }
-                    })
-                    .collect()
-            };
+        // Generate Iterable<T> for all exported types
+        // We need to track per-field sub-indexes for RefIterable.
+        // Group entries by field to compute sub-indexes correctly.
+        let iter_match_arms_with_subindex: Vec<TokenStream2> = {
+            let mut field_counters: std::collections::HashMap<String, usize> =
+                std::collections::HashMap::new();
+            entries
+                .iter()
+                .enumerate()
+                .map(|(iter_index, (_, entry))| {
+                    let entry_field = &entry.field;
+                    let entry_ty = &entry.ty;
+                    let field_key = entry_field.to_string();
+                    let sub_index = *field_counters.get(&field_key).unwrap_or(&0);
+                    field_counters.insert(field_key, sub_index + 1);
+                    let sub_index_lit = syn::LitInt::new(&sub_index.to_string(), proc_macro2::Span::call_site());
+                    quote! {
+                        #iter_index => nject::RefIterable::<#entry_ty, #provider_type>::inject(&self.provider.#fields_prefix #entry_field, self.provider, #sub_index_lit),
+                    }
+                })
+                .collect()
+        };
 
-            let iterable_impl = quote! {
-                impl<'prov, #provider_generics> nject::Iterable<'prov, #ty> for #provider_type
-                    where #where_clause
-                {
-                    #[inline]
-                    fn iter(&'prov self) -> impl Iterator<Item = #ty> {
-                        struct NjectIterator<'prov, #provider_generics> {
-                            provider: &'prov #provider_type,
-                            index: usize,
-                        }
-                        impl<'prov, #provider_generics> Iterator for NjectIterator<'prov, #provider_generics> {
-                            type Item = #ty;
+        let iterable_impl = quote! {
+            impl<'prov, #provider_generics> nject::Iterable<'prov, #ty> for #provider_type
+                where #where_clause
+            {
+                #[inline]
+                fn iter(&'prov self) -> impl Iterator<Item = #ty> {
+                    struct NjectIterator<'prov, #provider_generics> {
+                        provider: &'prov #provider_type,
+                        index: usize,
+                    }
+                    impl<'prov, #provider_generics> Iterator for NjectIterator<'prov, #provider_generics> {
+                        type Item = #ty;
 
-                            fn next(&mut self) -> Option<Self::Item> {
-                                let result = match self.index {
-                                    #(#iter_match_arms_with_subindex)*
-                                    _ => {
-                                        return None;
-                                    }
-                                };
-                                self.index += 1;
-                                Some(result)
-                            }
-                        }
-                        NjectIterator {
-                            provider: self,
-                            index: 0,
+                        fn next(&mut self) -> Option<Self::Item> {
+                            let result = match self.index {
+                                #(#iter_match_arms_with_subindex)*
+                                _ => {
+                                    return None;
+                                }
+                            };
+                            self.index += 1;
+                            Some(result)
                         }
                     }
+                    NjectIterator {
+                        provider: self,
+                        index: 0,
+                    }
                 }
-            };
-            outputs.push(iterable_impl);
-        }
+            }
+        };
+        outputs.push(iterable_impl);
     }
 
     let result = quote! { #(#outputs)* };

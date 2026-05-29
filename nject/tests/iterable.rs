@@ -137,3 +137,20 @@ fn iter_with_multiple_exports_module_imported_from_root_should_return_iterable_o
     assert_eq!(values, vec![1, 2]);
     assert_eq!(scope.provide::<ScopedDep>(), ScopedDep(2));
 }
+
+#[test]
+fn iter_with_single_export_for_a_type_should_return_iterable_of_one() {
+    // Given
+    #[module]
+    #[injectable]
+    #[export(&'prov str, "Only")]
+    struct IterSingleExportModule;
+    #[injectable]
+    #[provider]
+    struct Provider(#[import] IterSingleExportModule);
+    let provider = InitProvider.provide::<Provider>();
+    // When
+    let values = provider.iter::<&str>().collect::<Vec<_>>();
+    // Then
+    assert_eq!(values, vec!["Only"])
+}
