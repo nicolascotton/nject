@@ -1,6 +1,6 @@
 use crate::core::{
-    DeriveInput, FactoryExpr, FieldFactoryExpr, NJECT_MODULE_MACRO_PREFIX, collection::group_by,
-    error,
+    DeriveInput, FactoryExpr, FieldFactoryExpr, NJECT_MODULE_MACRO_LOCAL_PREFIX,
+    NJECT_MODULE_MACRO_PREFIX, collection::group_by, error,
 };
 use proc_macro2::Span;
 use quote::{format_ident, quote};
@@ -318,14 +318,23 @@ fn gen_chain_invocation(
 /// returns the macro invocation path and the generic args (if any).
 ///
 /// Rules:
-/// - `crate::...::Module` → same crate → bare `__nject_module_Module`
-/// - `self::...::Module` → same crate → bare `__nject_module_Module`
-/// - `super::...::Module` → same crate → bare `__nject_module_Module`
-/// - `Module` (single segment) → same crate → bare `__nject_module_Module`
-/// - `external_crate::...::Module` → external → `external_crate::__nject_module_Module`
+/// - `crate::path::to::Module` → `crate::path::to::__nject_module_Module`
+/// - `self::path::to::Module` → `self::path::to::__nject_module_Module`
+/// - `super::path::to::Module` → `super::path::to::__nject_module_Module`
+/// - `Module` (single segment) → bare `__nject_module_Module` (textually
+///   in scope since the module's `macro_rules!` lives in the same module).
+/// - `external_crate::path::to::Module` →
+///   `external_crate::__nject_module_Module` (relies on `#[macro_export]`).
 ///
-/// The macro name is based solely on the struct name (last segment).
-/// Module struct names must be unique within a single crate.
+/// For same-crate paths, we reach the macro through the module's own path
+/// rather than via the crate root. The `#[module]` proc-macro emits a
+/// `pub(crate) use __nject_module_Module;` next to the `macro_rules!`, which
+/// makes the macro reachable through the same path as the module struct.
+/// This avoids the
+/// `macro_expanded_macro_exports_accessed_by_absolute_paths`
+/// future-incompatibility error that would be triggered by writing
+/// `crate::__nject_module_Module!()` for a macro defined inside a
+/// proc-macro expansion.
 fn extract_module_macro_path(
     ty: &Type,
 ) -> syn::Result<(proc_macro2::TokenStream, proc_macro2::TokenStream)> {
@@ -357,6 +366,7 @@ fn extract_module_macro_path(
     let last_segment = segments.last().unwrap();
     let struct_name = &last_segment.ident;
     let macro_name = format_ident!("{}{}", NJECT_MODULE_MACRO_PREFIX, struct_name);
+    let local_macro_name = format_ident!("{}{}", NJECT_MODULE_MACRO_LOCAL_PREFIX, struct_name);
 
     // Extract generic args from the last segment
     let module_args = match &last_segment.arguments {
@@ -369,7 +379,8 @@ fn extract_module_macro_path(
     };
 
     if segments.len() == 1 {
-        // Single segment like `MyModule` - same crate, bare name
+        // Single segment like `MyModule` - same crate, same scope. The
+        // `macro_rules!` is textually in scope, so the bare name resolves.
         return Ok((quote! { #macro_name }, module_args));
     }
 
@@ -378,11 +389,24 @@ fn extract_module_macro_path(
         || first_segment_name == "self"
         || first_segment_name == "super";
 
+    // Build the qualified path to where the macro lives. For same-crate
+    // imports, we replace the module struct identifier with the local-alias
+    // macro identifier (`__local_nject_module_…`) and keep the rest of the
+    // path intact:
+    //     `crate::a::b::Module`     →  `crate::a::b::__local_nject_module_Module`
+    //     `self::Module`            →  `self::__local_nject_module_Module`
+    //     `super::a::Module`        →  `super::a::__local_nject_module_Module`
+    //     `other_crate::a::Module`  →  `other_crate::__absolute_path_required_for_nject_module_Module`
+    //
+    // The local alias is required because absolute `crate::…` paths to a
+    // `#[macro_export]` macro defined inside a proc-macro expansion are
+    // refused by rustc (see issue #52234).
     let macro_path = if is_same_crate {
-        // Same crate - use bare name (macro_export puts it at crate root)
-        quote! { #macro_name }
+        let leading = segments.iter().take(segments.len() - 1).map(|s| &s.ident);
+        quote! { #(#leading::)* #local_macro_name }
     } else {
-        // External crate - use crate_name::macro_name
+        // External crate – `#[macro_export]` makes the macro available at the
+        // external crate's root, so we drop the intermediate path segments.
         let crate_prefix = &segments[0].ident;
         quote! { #crate_prefix :: #macro_name }
     };

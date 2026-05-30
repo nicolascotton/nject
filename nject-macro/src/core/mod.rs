@@ -12,6 +12,7 @@ use syn::{
 };
 
 pub const NJECT_MODULE_MACRO_PREFIX: &str = "__absolute_path_required_for_nject_module_";
+pub const NJECT_MODULE_MACRO_LOCAL_PREFIX: &str = "__local_nject_module_";
 
 pub struct DeriveInput(syn::DeriveInput);
 

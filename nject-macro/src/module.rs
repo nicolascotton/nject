@@ -1,6 +1,6 @@
 use crate::core::{
-    DeriveInput, FactoryExpr, FieldFactoryExpr, NJECT_MODULE_MACRO_PREFIX, collection::group_by,
-    error,
+    DeriveInput, FactoryExpr, FieldFactoryExpr, NJECT_MODULE_MACRO_LOCAL_PREFIX,
+    NJECT_MODULE_MACRO_PREFIX, collection::group_by, error,
 };
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
@@ -244,6 +244,7 @@ fn gen_module_macro(
     struct_type_exports: &[&Type],
 ) -> TokenStream2 {
     let macro_name = format_ident!("{}{}", NJECT_MODULE_MACRO_PREFIX, ident);
+    let local_macro_name = format_ident!("{}{}", NJECT_MODULE_MACRO_LOCAL_PREFIX, ident);
 
     // To emit $ in macro_rules! from a proc macro, we use a dollar-sign token
     let dollar = proc_macro2::Punct::new('$', proc_macro2::Spacing::Alone);
@@ -312,5 +313,25 @@ fn gen_module_macro(
                 }
             };
         }
+
+        // Re-export the module's collection macro under a different name
+        // through the module's own path, so callers in other parts of the
+        // same crate can refer to it as `<path-to-module>::<local_name>`.
+        // Without this `pub(crate) use`, providers declared in a different
+        // module would have no usable path to reach the macro:
+        // `#[macro_export]` macros created by a proc-macro expansion cannot
+        // be reached through `crate::...` absolute paths from within the
+        // same crate (see rust-lang/rust issue #52234), and bare-name
+        // lookup only works in the lexical scope where the `macro_rules!`
+        // is defined.
+        //
+        // The alias intentionally uses a different name from the
+        // `#[macro_export]` macro: re-importing under the same name would
+        // collide with the crate-root entry created by `#[macro_export]`
+        // when the module is declared at crate root.
+        #[allow(non_local_definitions)]
+        #[allow(unused_imports)]
+        #[doc(hidden)]
+        pub(crate) use #macro_name as #local_macro_name;
     }
 }
