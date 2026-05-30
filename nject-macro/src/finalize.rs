@@ -3,9 +3,39 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{
-    Ident, Token, braced,
+    braced,
     parse::{Parse, ParseStream},
+    Ident, Token,
 };
+
+fn parse_named_bracketed_tokens(input: ParseStream, name: &str) -> syn::Result<TokenStream2> {
+    let ident: Ident = input.parse()?;
+    if ident != name {
+        return Err(syn::Error::new(ident.span(), format!("expected `{name}`")));
+    }
+
+    input.parse::<Token![=]>()?;
+    let content;
+    syn::bracketed!(content in input);
+    content.parse()
+}
+
+fn parse_named_bracketed_entries<T: Parse>(input: ParseStream, name: &str) -> syn::Result<Vec<T>> {
+    let ident: Ident = input.parse()?;
+    if ident != name {
+        return Err(syn::Error::new(ident.span(), format!("expected `{name}`")));
+    }
+
+    input.parse::<Token![=]>()?;
+    let content;
+    syn::bracketed!(content in input);
+
+    let mut entries = Vec::new();
+    while !content.is_empty() {
+        entries.push(content.parse()?);
+    }
+    Ok(entries)
+}
 
 /// A single export entry: `{ field = [field_tokens], ty = [type_tokens] }`
 struct ExportEntry {
@@ -18,30 +48,9 @@ impl Parse for ExportEntry {
         let content;
         braced!(content in input);
 
-        // field = [...]
-        let field_ident: Ident = content.parse()?;
-        if field_ident != "field" {
-            return Err(syn::Error::new(field_ident.span(), "expected `field`"));
-        }
-        content.parse::<Token![=]>()?;
-        let field_content;
-        syn::bracketed!(field_content in content);
-        let field: TokenStream2 = field_content.parse()?;
-
-        // comma
+        let field = parse_named_bracketed_tokens(&content, "field")?;
         content.parse::<Token![,]>()?;
-
-        // ty = [...]
-        let ty_ident: Ident = content.parse()?;
-        if ty_ident != "ty" {
-            return Err(syn::Error::new(ty_ident.span(), "expected `ty`"));
-        }
-        content.parse::<Token![=]>()?;
-        let ty_content;
-        syn::bracketed!(ty_content in content);
-        let ty: TokenStream2 = ty_content.parse()?;
-
-        // optional trailing comma
+        let ty = parse_named_bracketed_tokens(&content, "ty")?;
         let _ = content.parse::<Token![,]>();
 
         Ok(ExportEntry { field, ty })
@@ -70,67 +79,19 @@ struct FinalizeInput {
 
 impl Parse for FinalizeInput {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        // exports = [...]
-        let exports_ident: Ident = input.parse()?;
-        if exports_ident != "exports" {
-            return Err(syn::Error::new(exports_ident.span(), "expected `exports`"));
-        }
-        input.parse::<Token![=]>()?;
-        let exports_content;
-        syn::bracketed!(exports_content in input);
-        let mut exports = Vec::new();
-        while !exports_content.is_empty() {
-            exports.push(exports_content.parse::<ExportEntry>()?);
-        }
+        let exports = parse_named_bracketed_entries(input, "exports")?;
         input.parse::<Token![,]>()?;
 
-        // provider_generics = [...]
-        let pg_ident: Ident = input.parse()?;
-        if pg_ident != "provider_generics" {
-            return Err(syn::Error::new(
-                pg_ident.span(),
-                "expected `provider_generics`",
-            ));
-        }
-        input.parse::<Token![=]>()?;
-        let pg_content;
-        syn::bracketed!(pg_content in input);
-        let provider_generics: TokenStream2 = pg_content.parse()?;
+        let provider_generics = parse_named_bracketed_tokens(input, "provider_generics")?;
         input.parse::<Token![,]>()?;
 
-        // provider_type = [...]
-        let pt_ident: Ident = input.parse()?;
-        if pt_ident != "provider_type" {
-            return Err(syn::Error::new(pt_ident.span(), "expected `provider_type`"));
-        }
-        input.parse::<Token![=]>()?;
-        let pt_content;
-        syn::bracketed!(pt_content in input);
-        let provider_type: TokenStream2 = pt_content.parse()?;
+        let provider_type = parse_named_bracketed_tokens(input, "provider_type")?;
         input.parse::<Token![,]>()?;
 
-        // where_clause = [...]
-        let wc_ident: Ident = input.parse()?;
-        if wc_ident != "where_clause" {
-            return Err(syn::Error::new(wc_ident.span(), "expected `where_clause`"));
-        }
-        input.parse::<Token![=]>()?;
-        let wc_content;
-        syn::bracketed!(wc_content in input);
-        let where_clause: TokenStream2 = wc_content.parse()?;
+        let where_clause = parse_named_bracketed_tokens(input, "where_clause")?;
         input.parse::<Token![,]>()?;
 
-        // fields_prefix = [...]
-        let fp_ident: Ident = input.parse()?;
-        if fp_ident != "fields_prefix" {
-            return Err(syn::Error::new(fp_ident.span(), "expected `fields_prefix`"));
-        }
-        input.parse::<Token![=]>()?;
-        let fp_content;
-        syn::bracketed!(fp_content in input);
-        let fields_prefix: TokenStream2 = fp_content.parse()?;
-
-        // optional trailing comma
+        let fields_prefix = parse_named_bracketed_tokens(input, "fields_prefix")?;
         let _ = input.parse::<Token![,]>();
 
         Ok(FinalizeInput {
@@ -140,6 +101,97 @@ impl Parse for FinalizeInput {
             where_clause,
             fields_prefix,
         })
+    }
+}
+
+fn gen_provider_impl(
+    entry: &ExportEntry,
+    provider_generics: &TokenStream2,
+    provider_type: &TokenStream2,
+    where_clause: &TokenStream2,
+    fields_prefix: &TokenStream2,
+) -> TokenStream2 {
+    let ty = &entry.ty;
+    let field = &entry.field;
+
+    quote! {
+        impl<'prov, #provider_generics> nject::Provider<'prov, #ty> for #provider_type
+            where #where_clause
+        {
+            #[inline]
+            fn provide(&'prov self) -> #ty {
+                nject::RefInjectable::<#ty, Self>::inject(&self.#fields_prefix #field, self)
+            }
+        }
+    }
+}
+
+fn gen_iter_match_arms(
+    entries: &[&(usize, &ExportEntry)],
+    provider_type: &TokenStream2,
+    fields_prefix: &TokenStream2,
+) -> Vec<TokenStream2> {
+    let mut field_counters = std::collections::HashMap::new();
+
+    entries
+        .iter()
+        .enumerate()
+        .map(|(iter_index, (_, entry))| {
+            let entry_field = &entry.field;
+            let entry_ty = &entry.ty;
+            let field_key = entry_field.to_string();
+            let sub_index = *field_counters.get(&field_key).unwrap_or(&0);
+            field_counters.insert(field_key, sub_index + 1);
+            let sub_index_lit =
+                syn::LitInt::new(&sub_index.to_string(), proc_macro2::Span::call_site());
+
+            quote! {
+                #iter_index => nject::RefIterable::<#entry_ty, #provider_type>::inject(&self.provider.#fields_prefix #entry_field, self.provider, #sub_index_lit),
+            }
+        })
+        .collect()
+}
+
+fn gen_iterable_impl(
+    entries: &[&(usize, &ExportEntry)],
+    ty: &TokenStream2,
+    provider_generics: &TokenStream2,
+    provider_type: &TokenStream2,
+    where_clause: &TokenStream2,
+    fields_prefix: &TokenStream2,
+) -> TokenStream2 {
+    let iter_match_arms_with_subindex = gen_iter_match_arms(entries, provider_type, fields_prefix);
+
+    quote! {
+        impl<'prov, #provider_generics> nject::Iterable<'prov, #ty> for #provider_type
+            where #where_clause
+        {
+            #[inline]
+            fn iter(&'prov self) -> impl Iterator<Item = #ty> {
+                struct NjectIterator<'prov, #provider_generics> {
+                    provider: &'prov #provider_type,
+                    index: usize,
+                }
+                impl<'prov, #provider_generics> Iterator for NjectIterator<'prov, #provider_generics> {
+                    type Item = #ty;
+
+                    fn next(&mut self) -> Option<Self::Item> {
+                        let result = match self.index {
+                            #(#iter_match_arms_with_subindex)*
+                            _ => {
+                                return None;
+                            }
+                        };
+                        self.index += 1;
+                        Some(result)
+                    }
+                }
+                NjectIterator {
+                    provider: self,
+                    index: 0,
+                }
+            }
+        }
     }
 }
 
@@ -165,76 +217,25 @@ pub(crate) fn handle_finalize_imports(item: TokenStream) -> syn::Result<TokenStr
     for entries in grouped.values() {
         let (_, last_entry) = entries.last().unwrap();
         let ty = &last_entry.ty;
-        let field = &last_entry.field;
 
         // Generate Provider<T> impl - last field wins
-        let provider_impl = quote! {
-            impl<'prov, #provider_generics> nject::Provider<'prov, #ty> for #provider_type
-                where #where_clause
-            {
-                #[inline]
-                fn provide(&'prov self) -> #ty {
-                    nject::RefInjectable::<#ty, Self>::inject(&self.#fields_prefix #field, self)
-                }
-            }
-        };
-        outputs.push(provider_impl);
+        outputs.push(gen_provider_impl(
+            last_entry,
+            provider_generics,
+            provider_type,
+            where_clause,
+            fields_prefix,
+        ));
 
         // Generate Iterable<T> for all exported types
-        // We need to track per-field sub-indexes for RefIterable.
-        // Group entries by field to compute sub-indexes correctly.
-        let iter_match_arms_with_subindex: Vec<TokenStream2> = {
-            let mut field_counters: std::collections::HashMap<String, usize> =
-                std::collections::HashMap::new();
-            entries
-                .iter()
-                .enumerate()
-                .map(|(iter_index, (_, entry))| {
-                    let entry_field = &entry.field;
-                    let entry_ty = &entry.ty;
-                    let field_key = entry_field.to_string();
-                    let sub_index = *field_counters.get(&field_key).unwrap_or(&0);
-                    field_counters.insert(field_key, sub_index + 1);
-                    let sub_index_lit = syn::LitInt::new(&sub_index.to_string(), proc_macro2::Span::call_site());
-                    quote! {
-                        #iter_index => nject::RefIterable::<#entry_ty, #provider_type>::inject(&self.provider.#fields_prefix #entry_field, self.provider, #sub_index_lit),
-                    }
-                })
-                .collect()
-        };
-
-        let iterable_impl = quote! {
-            impl<'prov, #provider_generics> nject::Iterable<'prov, #ty> for #provider_type
-                where #where_clause
-            {
-                #[inline]
-                fn iter(&'prov self) -> impl Iterator<Item = #ty> {
-                    struct NjectIterator<'prov, #provider_generics> {
-                        provider: &'prov #provider_type,
-                        index: usize,
-                    }
-                    impl<'prov, #provider_generics> Iterator for NjectIterator<'prov, #provider_generics> {
-                        type Item = #ty;
-
-                        fn next(&mut self) -> Option<Self::Item> {
-                            let result = match self.index {
-                                #(#iter_match_arms_with_subindex)*
-                                _ => {
-                                    return None;
-                                }
-                            };
-                            self.index += 1;
-                            Some(result)
-                        }
-                    }
-                    NjectIterator {
-                        provider: self,
-                        index: 0,
-                    }
-                }
-            }
-        };
-        outputs.push(iterable_impl);
+        outputs.push(gen_iterable_impl(
+            entries,
+            ty,
+            provider_generics,
+            provider_type,
+            where_clause,
+            fields_prefix,
+        ));
     }
 
     let result = quote! { #(#outputs)* };
