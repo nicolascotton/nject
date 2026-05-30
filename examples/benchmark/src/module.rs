@@ -90,9 +90,9 @@ fn iter_by_value_from_module(b: &mut Bencher) {
     let provider = Provider.provide::<MultiProvider>();
     b.iter(move || {
         for _ in 0..ITERATION_COUNT {
-            test::black_box(for x in provider.iter::<MultiDep>() {
+            for x in test::black_box(provider.iter::<MultiDep>()) {
                 let _ = x;
-            });
+            }
         }
     });
 }
@@ -102,9 +102,9 @@ fn iter_by_dyn_ref_from_module(b: &mut Bencher) {
     let provider = Provider.provide::<MultiProvider>();
     b.iter(move || {
         for _ in 0..ITERATION_COUNT {
-            test::black_box(for x in provider.iter::<&dyn MultiTrait>() {
+            for x in test::black_box(provider.iter::<&dyn MultiTrait>()) {
                 let _ = x;
-            });
+            }
         }
     });
 }

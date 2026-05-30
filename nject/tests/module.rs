@@ -29,7 +29,7 @@ fn provide_with_ref_to_module_should_export_its_members_correctly() {
     // When
     let facade = provider.provide::<sub::SimpleFacade>();
     // Then
-    assert_eq!(facade, sub::expected_simple_facade(&provider.0))
+    assert_eq!(facade, sub::expected_simple_facade(provider.0))
 }
 
 #[test]
@@ -234,7 +234,7 @@ mod sub {
     }
 
     pub fn expected_simple_ref_facade<'a>(module: &'a ModuleWithRef) -> SimpleRefFacade<'a> {
-        SimpleRefFacade(&module.hidden)
+        SimpleRefFacade(module.hidden)
     }
 
     pub fn expected_generic_facade<'a, T>(
