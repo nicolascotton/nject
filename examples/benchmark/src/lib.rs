@@ -1,5 +1,4 @@
 #![cfg_attr(test, feature(test))]
-#![cfg_attr(test, feature(type_alias_impl_trait))]
 #![allow(dead_code)]
 
 pub trait MultiTrait {}
@@ -17,7 +16,7 @@ impl MultiTrait for Dep10 {}
 struct MultiDep(i32);
 
 #[injectable]
-#[module(crate::Self)]
+#[module]
 #[export(&'prov dyn crate::MultiTrait, &self.dep1)]
 #[export(&'prov dyn crate::MultiTrait, &self.dep2)]
 #[export(&'prov dyn crate::MultiTrait, &self.dep3)]
@@ -38,7 +37,7 @@ struct MultiDep(i32);
 #[export(crate::MultiDep, MultiDep(8))]
 #[export(crate::MultiDep, MultiDep(9))]
 #[export(crate::MultiDep, MultiDep(10))]
-struct MultiExportModule {
+pub struct MultiExportModule {
     dep1: Dep1,
     dep2: Dep2,
     dep3: Dep3,

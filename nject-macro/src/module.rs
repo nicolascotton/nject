@@ -1,10 +1,12 @@
-pub mod models;
-pub mod repository;
-use crate::core::{DeriveInput, FactoryExpr, FieldFactoryExpr, collection::group_by, error};
+use crate::core::{
+    DeriveInput, FactoryExpr, FieldFactoryExpr, NJECT_MODULE_MACRO_LOCAL_PREFIX,
+    NJECT_MODULE_MACRO_PREFIX, collection::group_by, error,
+};
 use proc_macro::TokenStream;
-use quote::quote;
+use proc_macro2::TokenStream as TokenStream2;
+use quote::{format_ident, quote};
 use syn::{
-    Expr, PatType, Path, Token, Type,
+    Expr, GenericParam, PatType, Token, Type,
     parse::{Parse, ParseStream},
     spanned::Spanned,
 };
@@ -29,17 +31,8 @@ impl Parse for ExportStructInput {
 
 type ExportFieldInput = FieldFactoryExpr;
 
-pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> {
+pub(crate) fn handle_module(_attr: TokenStream, item: TokenStream) -> syn::Result<TokenStream> {
     let input = syn::parse::<DeriveInput>(item)?;
-    let module_pub_path = match attr.is_empty() {
-        true => None,
-        false => {
-            let path = syn::parse::<Path>(attr).map_err(|e| {
-                error::combine(syn::Error::new(e.span(), "Invalid public module path"), e)
-            })?;
-            Some(path)
-        }
-    };
     let ident = &input.ident;
     let fields = input.fields().iter().collect::<Vec<_>>();
     let struct_exports = input
@@ -82,12 +75,7 @@ pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> syn::Result
             ExportStructInput::TypeExprFact(t, _, _) => t,
         })
         .collect::<Vec<_>>();
-    let module = models::Module::from((
-        ident,
-        module_pub_path.as_ref(),
-        struct_type_exports.as_slice(),
-    ));
-    repository::ensure(module);
+
     let generic_keys = input.generic_keys();
     let lifetime_keys = input.lifetime_keys();
     let prov_lifetimes = match lifetime_keys.is_empty() {
@@ -231,11 +219,119 @@ pub(crate) fn handle_module(attr: TokenStream, item: TokenStream) -> syn::Result
         }
     });
 
+    // Generate the macro_rules! for this module
+    let module_macro_output = gen_module_macro(ident, &generic_params, &struct_type_exports);
+
     let output = quote! {
         #[derive(nject::ModuleHelperAttr)]
+        #[allow(clippy::duplicated_attributes)]
         #input
         #(#struct_export_outputs)*
         #(#export_outputs)*
+        #module_macro_output
     };
     Ok(output.into())
+}
+
+/// Generate the `#[macro_export] macro_rules! __nject_module_{Ident}` macro
+/// that participates in the chaining protocol.
+///
+/// The macro name is based solely on the struct name. This means module struct names
+/// must be unique within a single crate.
+fn gen_module_macro(
+    ident: &syn::Ident,
+    generic_params: &[&GenericParam],
+    struct_type_exports: &[&Type],
+) -> TokenStream2 {
+    let macro_name = format_ident!("{}{}", NJECT_MODULE_MACRO_PREFIX, ident);
+    let local_macro_name = format_ident!("{}{}", NJECT_MODULE_MACRO_LOCAL_PREFIX, ident);
+
+    // To emit $ in macro_rules! from a proc macro, we use a dollar-sign token
+    let dollar = proc_macro2::Punct::new('$', proc_macro2::Spacing::Alone);
+
+    // Build the module_args pattern and the export entries
+    let module_args_pattern = if generic_params.is_empty() {
+        quote! {}
+    } else {
+        let patterns: Vec<TokenStream2> = generic_params
+            .iter()
+            .enumerate()
+            .map(|(i, p)| {
+                let var_name = format_ident!("__nject_g{}", i);
+                let d = &dollar;
+                match p {
+                    GenericParam::Lifetime(_) => quote! { #d #var_name:lifetime },
+                    GenericParam::Type(_) => quote! { #d #var_name:ty },
+                    GenericParam::Const(_) => quote! { #d #var_name:expr },
+                }
+            })
+            .collect();
+        quote! { #(#patterns),* }
+    };
+
+    // Build the export type tokens
+    let export_entries: Vec<TokenStream2> = struct_type_exports
+        .iter()
+        .map(|ty| {
+            let d = &dollar;
+            quote! { { field = [#d(#d __nject_field)*], ty = [#ty] } }
+        })
+        .collect();
+
+    let d = &dollar;
+
+    let exports_addition = if export_entries.is_empty() {
+        quote! { #d(#d __nject_exports)* }
+    } else {
+        quote! {
+            #d(#d __nject_exports)*
+            #(#export_entries)*
+        }
+    };
+
+    quote! {
+        /// For internal purposes only. Should not be used.
+        #[allow(non_local_definitions)]
+        #[allow(clippy::crate_in_macro_def)]
+        #[doc(hidden)]
+        #[macro_export]
+        macro_rules! #macro_name {
+            (
+                @nject_collect
+                next = [#d(#d __nject_next:tt)*],
+                field = [#d(#d __nject_field:tt)*],
+                module_args = [#module_args_pattern],
+                exports = [#d(#d __nject_exports:tt)*],
+                #d(#d __nject_provider_info:tt)*
+            ) => {
+                ::nject::__nject_next! {
+                    next = [#d(#d __nject_next)*],
+                    exports = [
+                        #exports_addition
+                    ],
+                    #d(#d __nject_provider_info)*
+                }
+            };
+        }
+
+        // Re-export the module's collection macro under a different name
+        // through the module's own path, so callers in other parts of the
+        // same crate can refer to it as `<path-to-module>::<local_name>`.
+        // Without this `pub(crate) use`, providers declared in a different
+        // module would have no usable path to reach the macro:
+        // `#[macro_export]` macros created by a proc-macro expansion cannot
+        // be reached through `crate::...` absolute paths from within the
+        // same crate (see rust-lang/rust issue #52234), and bare-name
+        // lookup only works in the lexical scope where the `macro_rules!`
+        // is defined.
+        //
+        // The alias intentionally uses a different name from the
+        // `#[macro_export]` macro: re-importing under the same name would
+        // collide with the crate-root entry created by `#[macro_export]`
+        // when the module is declared at crate root.
+        #[allow(non_local_definitions)]
+        #[allow(unused_imports)]
+        #[doc(hidden)]
+        pub(crate) use #macro_name as #local_macro_name;
+    }
 }

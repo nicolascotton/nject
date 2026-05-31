@@ -2065,9 +2065,9 @@ fn iter_by_value(b: &mut Bencher) {
     ];
     b.iter(|| {
         for _ in 0..ITERATION_COUNT {
-            test::black_box(for x in &provider {
+            for x in test::black_box(&provider) {
                 let _ = x;
-            });
+            }
         }
     });
 }
@@ -2460,9 +2460,9 @@ fn iter_by_dyn_ref(b: &mut Bencher) {
     ];
     b.iter(|| {
         for _ in 0..ITERATION_COUNT {
-            test::black_box(for x in provider {
+            for x in test::black_box(provider) {
                 let _ = x;
-            });
+            }
         }
     });
 }

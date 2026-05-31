@@ -4,8 +4,8 @@ use pubsub::{FirstMessage, SecondMessage, Subscriber};
 #[injectable]
 #[provider]
 struct Publisher(
-    #[import] pubsub::first::Module,
-    #[import] pubsub::second::Module,
+    #[import] pubsub::first::FirstModule,
+    #[import] pubsub::second::SecondModule,
 );
 
 impl Publisher {

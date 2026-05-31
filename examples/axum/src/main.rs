@@ -6,13 +6,12 @@ use axum::{
     routing::{get, post},
 };
 use axum_example::CreateUser;
-use axum_example::Module;
 use axum_example::UserService;
 use nject::{injectable, provider};
 
 #[provider]
 #[injectable]
-pub struct Provider(#[import] Module);
+pub struct Provider(#[import] axum_example::Module);
 
 #[tokio::main]
 async fn main() {

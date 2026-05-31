@@ -9,4 +9,4 @@ edition = "2024"
 actix-web = "4"
 nject = { path = "../../nject" }
 serde = { version = "1", features = ["derive"] }
-sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio"] }
+sqlx = { version = "0.9", features = ["sqlite", "runtime-tokio"] }

@@ -22,18 +22,18 @@ fn init_expr_with_two_modules_should_chain_dependencies() {
     #[injectable]
     #[module]
     #[export(i32, 42)]
-    struct ConfigModule;
+    struct ExprTwoConfigModule;
 
     #[injectable]
     #[module]
     #[export(String, |x: i32| format!("value: {}", x))]
-    struct FormatModule;
+    struct ExprTwoFormatModule;
 
     #[injectable]
     #[provider]
-    struct AppProvider(#[import] ConfigModule, #[import] FormatModule);
+    struct AppProvider(#[import] ExprTwoConfigModule, #[import] ExprTwoFormatModule);
 
-    let provider: AppProvider = init!(ConfigModule, FormatModule);
+    let provider: AppProvider = init!(ExprTwoConfigModule, ExprTwoFormatModule);
 
     let greeting: String = provider.provide();
     assert_eq!(greeting, "value: 42");
@@ -44,27 +44,27 @@ fn init_expr_with_three_modules_should_chain_all_dependencies() {
     #[injectable]
     #[module]
     #[export(i32, 100)]
-    struct BaseModule;
+    struct ExprThreeBaseModule;
 
     #[injectable]
     #[module]
     #[export(u32, |x: i32| x as u32 + 1)]
-    struct MiddleModule;
+    struct ExprThreeMiddleModule;
 
     #[injectable]
     #[module]
     #[export(String, |x: u32| format!("result: {}", x))]
-    struct TopModule;
+    struct ExprThreeTopModule;
 
     #[injectable]
     #[provider]
     struct Provider(
-        #[import] BaseModule,
-        #[import] MiddleModule,
-        #[import] TopModule,
+        #[import] ExprThreeBaseModule,
+        #[import] ExprThreeMiddleModule,
+        #[import] ExprThreeTopModule,
     );
 
-    let provider: Provider = init!(BaseModule, MiddleModule, TopModule);
+    let provider: Provider = init!(ExprThreeBaseModule, ExprThreeMiddleModule, ExprThreeTopModule);
 
     let result: String = provider.provide();
     assert_eq!(result, "result: 101");
@@ -75,18 +75,18 @@ fn init_expr_with_independent_modules_should_work() {
     #[injectable]
     #[module]
     #[export(i32, 10)]
-    struct ModuleA;
+    struct IndepModuleA;
 
     #[injectable]
     #[module]
     #[export(u32, 20)]
-    struct ModuleB;
+    struct IndepModuleB;
 
     #[injectable]
     #[provider]
-    struct Provider(#[import] ModuleA, #[import] ModuleB);
+    struct Provider(#[import] IndepModuleA, #[import] IndepModuleB);
 
-    let provider: Provider = init!(ModuleA, ModuleB);
+    let provider: Provider = init!(IndepModuleA, IndepModuleB);
 
     let a: i32 = provider.provide();
     let b: u32 = provider.provide();
@@ -101,14 +101,14 @@ fn init_block_with_single_module_should_provide_target() {
     #[injectable]
     #[module]
     #[export(i32, 99)]
-    struct SingleModule;
+    struct BlockSingleModule;
 
     #[injectable]
     #[provider]
-    struct Provider(#[import] SingleModule);
+    struct Provider(#[import] BlockSingleModule);
 
     init! {
-        let provider: Provider = SingleModule;
+        let provider: Provider = BlockSingleModule;
     }
 
     let value: i32 = provider.provide();
@@ -120,19 +120,19 @@ fn init_block_with_two_modules_should_chain_dependencies() {
     #[injectable]
     #[module]
     #[export(i32, 7)]
-    struct NumModule;
+    struct BlockTwoNumModule;
 
     #[injectable]
     #[module]
     #[export(String, |x: i32| format!("num={}", x))]
-    struct FmtModule;
+    struct BlockTwoFmtModule;
 
     #[injectable]
     #[provider]
-    struct Provider(#[import] NumModule, #[import] FmtModule);
+    struct Provider(#[import] BlockTwoNumModule, #[import] BlockTwoFmtModule);
 
     init! {
-        let provider: Provider = NumModule, FmtModule;
+        let provider: Provider = BlockTwoNumModule, BlockTwoFmtModule;
     }
 
     let s: String = provider.provide();
@@ -225,35 +225,35 @@ fn init_block_with_cross_module_borrowing_should_work() {
 
     #[derive(Debug, PartialEq)]
     #[injectable]
-    struct Config(#[inject(42)] i32);
+    struct CrossConfig(#[inject(42)] i32);
 
     #[injectable]
     #[module]
-    struct ConfigModule {
+    struct CrossConfigModule {
         #[export]
-        config: Config,
+        config: CrossConfig,
     }
 
     #[derive(Debug, PartialEq)]
     #[injectable]
-    struct Service<'a>(&'a Config);
+    struct CrossService<'a>(&'a CrossConfig);
 
     #[injectable]
     #[module]
-    struct ServiceModule<'a> {
+    struct CrossServiceModule<'a> {
         #[export]
-        svc: Service<'a>,
+        svc: CrossService<'a>,
     }
 
     #[injectable]
     #[provider]
-    struct AppProvider<'a>(#[import] ConfigModule, #[import] ServiceModule<'a>);
+    struct AppProvider<'a>(#[import] CrossConfigModule, #[import] CrossServiceModule<'a>);
 
     init! {
-        let provider: AppProvider<'_> = ConfigModule, ServiceModule;
+        let provider: AppProvider<'_> = CrossConfigModule, CrossServiceModule;
     }
 
-    let svc: Service = provider.provide();
+    let svc: CrossService = provider.provide();
     assert_eq!(svc.0.0, 42);
 }
 
@@ -295,29 +295,29 @@ fn init_block_with_multiple_chained_declarations_should_work() {
     #[injectable]
     #[module]
     #[export(i32, 10)]
-    struct NumModule;
+    struct MultiChainNumModule;
 
     #[injectable]
     #[module]
     #[export(String, |x: i32| format!("n={}", x))]
-    struct FmtModule;
+    struct MultiChainFmtModule;
 
     #[injectable]
     #[module]
     #[export(u64, 999)]
-    struct IdModule;
+    struct MultiChainIdModule;
 
     #[injectable]
     #[provider]
-    struct FmtProvider(#[import] NumModule, #[import] FmtModule);
+    struct FmtProvider(#[import] MultiChainNumModule, #[import] MultiChainFmtModule);
 
     #[injectable]
     #[provider]
-    struct IdProvider(#[import] IdModule);
+    struct IdProvider(#[import] MultiChainIdModule);
 
     init! {
-        let fmt_prov: FmtProvider = NumModule, FmtModule;
-        let id_prov: IdProvider = IdModule;
+        let fmt_prov: FmtProvider = MultiChainNumModule, MultiChainFmtModule;
+        let id_prov: IdProvider = MultiChainIdModule;
     }
 
     let s: String = fmt_prov.provide();
@@ -377,28 +377,28 @@ fn init_block_with_three_module_chain_should_work() {
     #[injectable]
     #[module]
     #[export(i32, 100)]
-    struct BaseModule;
+    struct BlockThreeBaseModule;
 
     #[injectable]
     #[module]
     #[export(u64, |x: i32| x as u64 * 3)]
-    struct MiddleModule;
+    struct BlockThreeMiddleModule;
 
     #[injectable]
     #[module]
     #[export(String, |x: u64| format!("final={}", x))]
-    struct TopModule;
+    struct BlockThreeTopModule;
 
     #[injectable]
     #[provider]
     struct FullProvider(
-        #[import] BaseModule,
-        #[import] MiddleModule,
-        #[import] TopModule,
+        #[import] BlockThreeBaseModule,
+        #[import] BlockThreeMiddleModule,
+        #[import] BlockThreeTopModule,
     );
 
     init! {
-        let provider: FullProvider = BaseModule, MiddleModule, TopModule;
+        let provider: FullProvider = BlockThreeBaseModule, BlockThreeMiddleModule, BlockThreeTopModule;
     }
 
     let i: i32 = provider.provide();
@@ -415,41 +415,41 @@ fn init_block_with_field_exports_and_three_modules_should_work() {
 
     #[derive(Debug, PartialEq)]
     #[injectable]
-    struct Config(#[inject(7)] i32);
+    struct FieldThreeConfig(#[inject(7)] i32);
 
     #[injectable]
     #[module]
-    struct ConfigModule {
+    struct FieldThreeConfigModule {
         #[export]
-        cfg: Config,
+        cfg: FieldThreeConfig,
     }
 
     #[derive(Debug, PartialEq)]
     #[injectable]
-    struct Cache<'a>(#[inject(99)] i32, &'a Config);
+    struct FieldThreeCache<'a>(#[inject(99)] i32, &'a FieldThreeConfig);
 
     #[injectable]
     #[module]
-    struct CacheModule<'a> {
+    struct FieldThreeCacheModule<'a> {
         #[export]
-        cache: Cache<'a>,
+        cache: FieldThreeCache<'a>,
     }
 
     #[derive(Debug, PartialEq)]
     #[injectable]
-    struct Handler<'a>(&'a Config, &'a Cache<'a>);
+    struct FieldThreeHandler<'a>(&'a FieldThreeConfig, &'a FieldThreeCache<'a>);
 
     #[injectable]
     #[provider]
-    struct AppProvider<'a>(#[import] ConfigModule, #[import] CacheModule<'a>);
+    struct AppProvider<'a>(#[import] FieldThreeConfigModule, #[import] FieldThreeCacheModule<'a>);
 
     init! {
-        let provider: AppProvider<'_> = ConfigModule, CacheModule;
+        let provider: AppProvider<'_> = FieldThreeConfigModule, FieldThreeCacheModule;
     }
 
-    let cfg: &Config = provider.provide();
-    let cache: &Cache = provider.provide();
-    let handler: Handler = provider.provide();
+    let cfg: &FieldThreeConfig = provider.provide();
+    let cache: &FieldThreeCache = provider.provide();
+    let handler: FieldThreeHandler = provider.provide();
     assert_eq!(cfg.0, 7);
     assert_eq!(cache.0, 99);
     assert_eq!(handler.0.0, 7);

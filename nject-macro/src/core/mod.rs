@@ -1,11 +1,8 @@
 pub mod collection;
-pub mod encoding;
 pub mod error;
-pub mod hash;
 use proc_macro2::TokenStream;
 use quote::{ToTokens, quote};
-use std::path::PathBuf;
-use std::{ops::Deref, str::FromStr};
+use std::ops::Deref;
 use syn::Token;
 use syn::{
     AngleBracketedGenericArguments, Expr, ExprClosure, Fields, GenericArgument, GenericParam,
@@ -13,6 +10,9 @@ use syn::{
     parse::{Parse, ParseStream},
     spanned::Spanned,
 };
+
+pub const NJECT_MODULE_MACRO_PREFIX: &str = "__absolute_path_required_for_nject_module_";
+pub const NJECT_MODULE_MACRO_LOCAL_PREFIX: &str = "__local_nject_module_";
 
 pub struct DeriveInput(syn::DeriveInput);
 
@@ -146,31 +146,6 @@ impl Parse for FieldFactoryExpr {
         } else {
             Err(syn::Error::new(input.span(), "Input must be an identity."))
         }
-    }
-}
-
-pub fn extract_path_from_type(ty: &Type) -> &Path {
-    match ty {
-        Type::Path(p) => &p.path,
-        Type::Reference(r) => extract_path_from_type(&r.elem),
-        _ => panic!("Unsupported type. Must be a Path or a Reference type."),
-    }
-}
-
-/// Path to the cache directory.
-pub fn cache_path() -> PathBuf {
-    let out_dir = env!("NJECT_OUT_DIR");
-    std::path::PathBuf::from_str(out_dir).expect("Unable to construct NJECT_OUT_DIR")
-}
-
-/// Retry the `action` nth `times` with 100ms between each time.
-pub fn retry<T, E>(times: usize, action: impl Fn() -> Result<T, E>) -> Result<T, E> {
-    let result = action();
-    if result.is_ok() || times < 1 {
-        result
-    } else {
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        retry(times - 1, action)
     }
 }
 

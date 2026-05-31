@@ -11,16 +11,16 @@ fn iter_with_multiple_exports_for_a_type_from_different_modules_should_return_it
     #[module]
     #[injectable]
     #[export(&'prov str, "First")]
-    struct MultiExportFirstModuleStr;
+    struct IterDiffFirstModuleStr;
     #[module]
     #[injectable]
     #[export(&'prov str, "Last")]
-    struct MultiExportLastModuleStr;
+    struct IterDiffLastModuleStr;
     #[injectable]
     #[provider]
     struct Provider(
-        #[import] MultiExportFirstModuleStr,
-        #[import] MultiExportLastModuleStr,
+        #[import] IterDiffFirstModuleStr,
+        #[import] IterDiffLastModuleStr,
     );
     let provider = InitProvider.provide::<Provider>();
     // When
@@ -36,16 +36,16 @@ fn provide_with_multiple_exports_for_a_type_from_different_modules_should_return
     #[module]
     #[injectable]
     #[export(&'prov str, "First")]
-    struct MultiExportFirstModuleStr;
+    struct ProvDiffFirstModuleStr;
     #[module]
     #[injectable]
     #[export(&'prov str, "Last")]
-    struct MultiExportLastModuleStr;
+    struct ProvDiffLastModuleStr;
     #[injectable]
     #[provider]
     struct Provider(
-        #[import] MultiExportFirstModuleStr,
-        #[import] MultiExportLastModuleStr,
+        #[import] ProvDiffFirstModuleStr,
+        #[import] ProvDiffLastModuleStr,
     );
     let provider = InitProvider.provide::<Provider>();
     // When
@@ -61,10 +61,10 @@ fn iter_with_multiple_exports_for_a_type_from_same_modules_should_return_iterabl
     #[injectable]
     #[export(&'prov str, "First")]
     #[export(&'prov str, "Last")]
-    struct MultiExportSameModuleStr;
+    struct IterSameModuleStr;
     #[injectable]
     #[provider]
-    struct Provider(#[import] MultiExportSameModuleStr);
+    struct Provider(#[import] IterSameModuleStr);
     let provider = InitProvider.provide::<Provider>();
     // When
     let values = provider.iter::<&str>().collect::<Vec<_>>();
@@ -79,10 +79,10 @@ fn provide_with_multiple_exports_for_a_type_from_same_modules_should_return_last
     #[injectable]
     #[export(&'prov str, "First")]
     #[export(&'prov str, "Last")]
-    struct MultiExportSameModuleStr;
+    struct ProvSameModuleStr;
     #[injectable]
     #[provider]
-    struct Provider(#[import] MultiExportSameModuleStr);
+    struct Provider(#[import] ProvSameModuleStr);
     let provider = InitProvider.provide::<Provider>();
     // When
     let value = provider.provide::<&str>();
@@ -136,4 +136,21 @@ fn iter_with_multiple_exports_module_imported_from_root_should_return_iterable_o
     // Then
     assert_eq!(values, vec![1, 2]);
     assert_eq!(scope.provide::<ScopedDep>(), ScopedDep(2));
+}
+
+#[test]
+fn iter_with_single_export_for_a_type_should_return_iterable_of_one() {
+    // Given
+    #[module]
+    #[injectable]
+    #[export(&'prov str, "Only")]
+    struct IterSingleExportModule;
+    #[injectable]
+    #[provider]
+    struct Provider(#[import] IterSingleExportModule);
+    let provider = InitProvider.provide::<Provider>();
+    // When
+    let values = provider.iter::<&str>().collect::<Vec<_>>();
+    // Then
+    assert_eq!(values, vec!["Only"])
 }
