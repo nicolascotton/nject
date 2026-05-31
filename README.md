@@ -29,7 +29,7 @@ Simple zero cost dependency injection library made for rust
 Add the following to your `Cargo.toml`:
 ```toml
 [dependencies]
-nject = "0.4"
+nject = "0.5"
 ```
 ## Why `nject`?
 - **Zero cost**: Using this library is equivalent to manually injecting your dependencies as shown in the [benchmarks](https://github.com/nicolascotton/nject/tree/main/examples/benchmark).
