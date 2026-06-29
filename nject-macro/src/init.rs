@@ -1,4 +1,5 @@
 use proc_macro::TokenStream;
+use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
     GenericArgument, Ident, Lifetime, Token, Type,
@@ -7,11 +8,12 @@ use syn::{
 };
 
 /// Two forms:
-/// - Expression: `init!(M1, M2, M3)` -> block expression (owned modules only)
+/// - Expression: `init!(M1, M2, M3)` or `init!()` -> block expression (owned modules only)
 /// - Block:
 ///   ```ignore
 ///   init! {
 ///       let [mut] name [: Type] = M1, M2;
+///       let [mut] name [: Type];
 ///       let [mut] name [: Type] = M3;
 ///   }
 ///   ```
@@ -65,13 +67,24 @@ impl Parse for LetDecl {
         } else {
             None
         };
-        input.parse::<Token![=]>()?;
-        let modules = Punctuated::<Type, Token![,]>::parse_separated_nonempty(input)?;
+        let mut modules = Vec::new();
+        if input.peek(Token![=]) {
+            input.parse::<Token![=]>()?;
+            while !input.is_empty() && !input.peek(Token![;]) {
+                modules.push(input.parse::<Type>()?);
+
+                if input.peek(Token![,]) {
+                    input.parse::<Token![,]>()?;
+                } else {
+                    break;
+                }
+            }
+        }
         Ok(LetDecl {
             is_mut,
             ident,
             ty,
-            modules: modules.into_iter().collect(),
+            modules,
         })
     }
 }
@@ -114,6 +127,7 @@ fn collect_lifetimes_from_type(ty: &Type, lifetimes: &mut Vec<Lifetime>) {
 fn gen_chain(
     modules: &[Type],
     name_prefix: &str,
+    include_final_module: bool,
 ) -> (
     Vec<proc_macro2::TokenStream>,
     Vec<proc_macro2::TokenStream>,
@@ -134,12 +148,22 @@ fn gen_chain(
 
     let mut last_var = init_var.clone();
 
-    for i in 0..modules.len() - 1 {
+    let step_count = if include_final_module {
+        modules.len()
+    } else {
+        modules.len().saturating_sub(1)
+    };
+
+    for i in 0..step_count {
         let step_ident = format_ident!("__NjectInitStep_{}_{}", name_prefix, i);
         let step_modules = &modules[0..=i];
+        let chain_lifetime = Lifetime::new("'nject_init", Span::call_site());
 
         // Collect unique lifetimes from all module types in this step
         let mut lifetimes = Vec::new();
+        if i > 0 {
+            lifetimes.push(chain_lifetime.clone());
+        }
         for m in step_modules {
             collect_lifetimes_from_type(m, &mut lifetimes);
         }
@@ -150,8 +174,14 @@ fn gen_chain(
             quote! { <#(#lifetimes),*> }
         };
 
-        let import_fields = step_modules.iter().map(|m| {
-            quote! { #[import] #m }
+        let import_fields = step_modules.iter().enumerate().map(|(module_index, m)| {
+            let ty = if module_index < i {
+                quote! { &#chain_lifetime #m }
+            } else {
+                quote! { #m }
+            };
+
+            quote! { #[import] #[provide] #ty }
         });
 
         struct_defs.push(quote! {
@@ -177,15 +207,7 @@ pub(crate) fn handle_init(item: TokenStream) -> syn::Result<TokenStream> {
     let input = syn::parse::<InitInput>(item)?;
 
     match input {
-        InitInput::Expr { modules } => {
-            if modules.is_empty() {
-                return Err(syn::Error::new(
-                    proc_macro2::Span::call_site(),
-                    "init! requires at least one module type",
-                ));
-            }
-            handle_init_expr(&modules)
-        }
+        InitInput::Expr { modules } => handle_init_expr(&modules),
         InitInput::Block { declarations } => {
             if declarations.is_empty() {
                 return Err(syn::Error::new(
@@ -198,9 +220,9 @@ pub(crate) fn handle_init(item: TokenStream) -> syn::Result<TokenStream> {
     }
 }
 
-/// Expression form: `init!(M1, M2)` -> block expression
+/// Expression form: `init!(M1, M2)` or `init!()` -> block expression
 fn handle_init_expr(modules: &[Type]) -> syn::Result<TokenStream> {
-    if modules.len() == 1 {
+    if modules.is_empty() {
         let output = quote! {
             {
                 #[nject::provider]
@@ -211,7 +233,7 @@ fn handle_init_expr(modules: &[Type]) -> syn::Result<TokenStream> {
         return Ok(output.into());
     }
 
-    let (struct_defs, let_bindings, last_var) = gen_chain(modules, "expr");
+    let (struct_defs, let_bindings, last_var) = gen_chain(modules, "expr", true);
 
     let output = quote! {
         {
@@ -229,13 +251,6 @@ fn handle_init_block(declarations: &[LetDecl]) -> syn::Result<TokenStream> {
     let mut all_tokens = Vec::new();
 
     for decl in declarations {
-        if decl.modules.is_empty() {
-            return Err(syn::Error::new(
-                proc_macro2::Span::call_site(),
-                "each let declaration requires at least one module type",
-            ));
-        }
-
         let mutability = if decl.is_mut {
             quote! { mut }
         } else {
@@ -250,7 +265,7 @@ fn handle_init_block(declarations: &[LetDecl]) -> syn::Result<TokenStream> {
         let ident = &decl.ident;
         let name_prefix = ident.to_string();
 
-        if decl.modules.len() == 1 {
+        if decl.modules.is_empty() {
             let init_ident = format_ident!("__NjectInit_{}", name_prefix);
             all_tokens.push(quote! {
                 #[nject::provider]
@@ -259,7 +274,8 @@ fn handle_init_block(declarations: &[LetDecl]) -> syn::Result<TokenStream> {
                 let #mutability #ident #ty_annotation = #init_ident.provide();
             });
         } else {
-            let (struct_defs, let_bindings, last_var) = gen_chain(&decl.modules, &name_prefix);
+            let (struct_defs, let_bindings, last_var) =
+                gen_chain(&decl.modules, &name_prefix, false);
             all_tokens.push(quote! {
                 #(#struct_defs)*
                 #(#let_bindings)*

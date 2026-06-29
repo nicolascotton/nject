@@ -3,9 +3,8 @@ use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{
-    braced,
+    Ident, Token, braced,
     parse::{Parse, ParseStream},
-    Ident, Token,
 };
 
 fn parse_named_bracketed_tokens(input: ParseStream, name: &str) -> syn::Result<TokenStream2> {

@@ -1,6 +1,6 @@
 mod counter;
 pub use counter::*;
-use nject::{injectable, provider};
+use nject::{init, injectable, provider};
 
 const PROVIDER: *mut Provider = std::ptr::null_mut();
 
@@ -14,10 +14,7 @@ pub struct Provider {
 impl Provider {
     /// Initialize the Provider in static const PROVIDER.
     pub fn init() {
-        #[provider]
-        struct InitProvider;
-
-        let prov = InitProvider.provide::<Provider>();
+        let prov: Provider = init!();
         unsafe { std::ptr::swap(PROVIDER, Box::leak(Box::from(prov))) };
     }
 

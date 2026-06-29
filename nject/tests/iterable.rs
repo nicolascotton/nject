@@ -1,8 +1,5 @@
-use nject::{injectable, module, provider};
+use nject::{init, injectable, module, provider};
 use std::vec;
-
-#[provider]
-struct InitProvider;
 
 #[test]
 fn iter_with_multiple_exports_for_a_type_from_different_modules_should_return_iterable_of_exports()
@@ -22,7 +19,7 @@ fn iter_with_multiple_exports_for_a_type_from_different_modules_should_return_it
         #[import] IterDiffFirstModuleStr,
         #[import] IterDiffLastModuleStr,
     );
-    let provider = InitProvider.provide::<Provider>();
+    let provider: Provider = init!();
     // When
     let values = provider.iter::<&str>().collect::<Vec<_>>();
     // Then
@@ -47,7 +44,7 @@ fn provide_with_multiple_exports_for_a_type_from_different_modules_should_return
         #[import] ProvDiffFirstModuleStr,
         #[import] ProvDiffLastModuleStr,
     );
-    let provider = InitProvider.provide::<Provider>();
+    let provider: Provider = init!();
     // When
     let value = provider.provide::<&str>();
     // Then
@@ -65,7 +62,7 @@ fn iter_with_multiple_exports_for_a_type_from_same_modules_should_return_iterabl
     #[injectable]
     #[provider]
     struct Provider(#[import] IterSameModuleStr);
-    let provider = InitProvider.provide::<Provider>();
+    let provider: Provider = init!();
     // When
     let values = provider.iter::<&str>().collect::<Vec<_>>();
     // Then
@@ -83,7 +80,7 @@ fn provide_with_multiple_exports_for_a_type_from_same_modules_should_return_last
     #[injectable]
     #[provider]
     struct Provider(#[import] ProvSameModuleStr);
-    let provider = InitProvider.provide::<Provider>();
+    let provider: Provider = init!();
     // When
     let value = provider.provide::<&str>();
     // Then
@@ -129,7 +126,7 @@ fn iter_with_multiple_exports_module_imported_from_root_should_return_iterable_o
     #[scope(ScopedDep)]
     struct Root(#[import] MultiExportRootModule);
 
-    let root = InitProvider.provide::<Root>();
+    let root: Root = init!();
     let scope = root.scope();
     // When
     let values = scope.iter::<i32>().collect::<Vec<_>>();
@@ -148,7 +145,7 @@ fn iter_with_single_export_for_a_type_should_return_iterable_of_one() {
     #[injectable]
     #[provider]
     struct Provider(#[import] IterSingleExportModule);
-    let provider = InitProvider.provide::<Provider>();
+    let provider: Provider = init!();
     // When
     let values = provider.iter::<&str>().collect::<Vec<_>>();
     // Then

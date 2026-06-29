@@ -1,7 +1,4 @@
-use nject::provider;
-
-#[provider]
-struct InitProvider;
+use nject::init;
 
 mod modules {
     use nject::{injectable, module};
@@ -97,35 +94,35 @@ mod same_scope {
 
 #[test]
 fn nested_provider_can_import_via_crate_path() {
-    let provider = InitProvider.provide::<providers::CrateProvider>();
+    let provider: providers::CrateProvider = init!();
     let facade = provider.provide::<providers::Facade>();
     assert_eq!(facade.0.0, 42);
 }
 
 #[test]
 fn nested_provider_can_import_deep_crate_path() {
-    let provider = InitProvider.provide::<providers::DeepProvider>();
+    let provider: providers::DeepProvider = init!();
     let facade = provider.provide::<providers::InnerFacade>();
     assert_eq!(facade.0.0, 7);
 }
 
 #[test]
 fn nested_provider_can_import_via_super_path() {
-    let provider = InitProvider.provide::<providers::inner::SuperProvider>();
+    let provider: providers::inner::SuperProvider = init!();
     let facade = provider.provide::<providers::Facade>();
     assert_eq!(facade.0.0, 42);
 }
 
 #[test]
 fn provider_can_import_module_in_same_scope_by_bare_name() {
-    let provider = InitProvider.provide::<same_scope::BareProvider>();
+    let provider: same_scope::BareProvider = init!();
     let facade = provider.provide::<same_scope::LocalFacade>();
     assert_eq!(facade.0.0, 99);
 }
 
 #[test]
 fn provider_can_import_module_in_same_scope_via_self_path() {
-    let provider = InitProvider.provide::<same_scope::SelfProvider>();
+    let provider: same_scope::SelfProvider = init!();
     let facade = provider.provide::<same_scope::LocalFacade>();
     assert_eq!(facade.0.0, 99);
 }

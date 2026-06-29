@@ -1,4 +1,4 @@
-use nject::{inject, injectable, module, provider};
+use nject::{init, inject, injectable, module, provider};
 
 #[test]
 fn provide_with_type_providable_by_root_should_be_providable_by_scope() {
@@ -32,10 +32,7 @@ fn provide_with_type_providable_by_root_import_should_be_providable_by_scope() {
     #[derive(PartialEq, Debug)]
     struct ScopeDep<'a>(&'a i32);
 
-    #[provider]
-    struct InitProvider;
-
-    let root = InitProvider.provide::<Root>();
+    let root: Root = init!();
     let scope = root.scope();
     // When
     let scope_dep = scope.provide::<ScopeDep>();
@@ -112,10 +109,7 @@ fn provide_with_scoped_type_should_give_corresponding_value() {
     #[scope(ScopedDep)]
     struct Root(#[provide] RootDep);
 
-    #[provider]
-    struct InitProvider;
-
-    let root = InitProvider.provide::<Root>();
+    let root: Root = init!();
     let scope = root.scope();
     // When
     let value = scope.provide::<ScopedValue>();
@@ -143,10 +137,7 @@ fn provide_with_lifetime_on_scoped_type_should_give_corresponding_value() {
     #[scope(ScopedDep<'scope>)]
     struct Root(#[provide] RootDep);
 
-    #[provider]
-    struct InitProvider;
-
-    let root = InitProvider.provide::<Root>();
+    let root: Root = init!();
     let scope = root.scope();
     // When
     let value = scope.provide::<ScopedValue>();
@@ -245,23 +236,20 @@ fn scope_with_imported_module_iterable_should_iterate_exports() {
     #[module]
     #[export(&'prov dyn IntegerOwner, &self.0)]
     #[export(&'prov dyn IntegerOwner, &self.1)]
-    struct ScopeIterModule(
-        #[inject(Integer(1))] Integer,
-        #[inject(Integer(2))] Integer,
-    );
+    struct ScopeIterModule(#[inject(Integer(1))] Integer, #[inject(Integer(2))] Integer);
 
     #[injectable]
     #[provider]
     #[scope(#[import] ScopeIterModule)]
     struct Root;
 
-    #[provider]
-    struct InitProvider;
-
-    let root = InitProvider.provide::<Root>();
+    let root: Root = init!();
     let scope = root.scope();
     // When
-    let values: Vec<i32> = scope.iter::<&dyn IntegerOwner>().map(|o| o.value()).collect();
+    let values: Vec<i32> = scope
+        .iter::<&dyn IntegerOwner>()
+        .map(|o| o.value())
+        .collect();
     // Then
     assert_eq!(values, vec![1, 2]);
 }
@@ -284,13 +272,13 @@ fn scope_with_root_and_scope_modules_exporting_same_type_should_iterate_all() {
     #[scope(#[import] ScopeOnlyIterModule)]
     struct IterRoot(#[import] RootIterModule);
 
-    #[provider]
-    struct InitIterProvider;
-
-    let root = InitIterProvider.provide::<IterRoot>();
+    let root: IterRoot = init!();
     let scope = root.scope();
     // When
-    let values: Vec<i32> = scope.iter::<&dyn IntegerOwner>().map(|o| o.value()).collect();
+    let values: Vec<i32> = scope
+        .iter::<&dyn IntegerOwner>()
+        .map(|o| o.value())
+        .collect();
     // Then
     assert_eq!(values, vec![10, 20]);
 }

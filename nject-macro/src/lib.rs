@@ -114,7 +114,7 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
 /// Declare a module to export internal types.
 /// ```rust
-/// use nject::{injectable, provider};
+/// use nject::{init, injectable, provider};
 ///
 /// mod sub {
 ///     use nject::{injectable, module};
@@ -150,11 +150,8 @@ pub fn provider(_attr: TokenStream, item: TokenStream) -> TokenStream {
 ///     sub_mod: crate::sub::Module,
 /// }
 ///
-/// #[provider]
-/// struct InitProvider;
-///
 /// fn main() {
-///     let provider = InitProvider.provide::<Provider>();
+///     let provider: Provider = init!();
 ///     let facade = provider.provide::<sub::Facade>();
 /// }
 /// ```
@@ -194,6 +191,18 @@ pub fn module(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// assert_eq!(greeting, "value: 42");
 /// ```
 ///
+/// Providers that do not import modules can be initialized with an empty module list.
+///
+/// ```rust
+/// use nject::{init, injectable, provider};
+///
+/// #[injectable]
+/// #[provider]
+/// struct AppProvider;
+///
+/// let provider: AppProvider = init!();
+/// ```
+///
 /// # Block form
 ///
 /// Expands `let` declarations into the enclosing scope, keeping intermediate providers alive.
@@ -225,6 +234,20 @@ pub fn module(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// }
 /// let consumer: Consumer = provider.provide();
 /// assert_eq!(consumer.0.0, 42);
+/// ```
+///
+/// In block form, omit `=` and the module list for moduleless providers.
+///
+/// ```rust
+/// use nject::{init, injectable, provider};
+///
+/// #[injectable]
+/// #[provider]
+/// struct AppProvider;
+///
+/// init! {
+///     let provider: AppProvider;
+/// }
 /// ```
 #[proc_macro]
 pub fn init(item: TokenStream) -> TokenStream {

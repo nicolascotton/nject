@@ -1,5 +1,5 @@
 use super::*;
-use nject::{injectable, provider};
+use nject::{init, injectable, provider};
 use test::Bencher;
 
 #[bench]
@@ -60,10 +60,7 @@ fn by_ref_from_root(b: &mut Bencher) {
         #[provide] Dep10,
     );
 
-    #[provider]
-    struct InitProvider;
-
-    let root = InitProvider.provide::<Root>();
+    let root: Root = init!();
     b.iter(move || {
         for _ in 0..ITERATION_COUNT {
             let scope = root.scope();
