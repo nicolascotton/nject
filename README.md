@@ -228,7 +228,7 @@ fn main() {
 ```
 ### Use modules to export internal shared dependencies
 ```rust
-use nject::{injectable, provider};
+use nject::{init, injectable, provider};
 
 mod sub {
     use nject::{injectable, module};
@@ -281,10 +281,7 @@ struct Provider {
 }
 
 fn main() {
-    #[provider]
-    struct InitProvider;
-
-    let provider = InitProvider.provide::<Provider>();
+    let provider: Provider = init!();
     let _facade = provider.provide::<sub::Facade>();
 }
 ```
@@ -294,7 +291,7 @@ fn main() {
 
 ### Use modules to export public dependencies
 ```rust
-use nject::{injectable, provider};
+use nject::{init, injectable, provider};
 
 mod sub {
     use nject::{injectable, module};
@@ -343,10 +340,7 @@ struct Provider {
 }
 
 fn main() {
-    #[provider]
-    struct InitProvider;
-
-    let provider = InitProvider.provide::<Provider>();
+    let provider: Provider = init!();
     let _facade = provider.provide::<sub::Facade>();
 }
 ```
@@ -357,7 +351,7 @@ fn main() {
 
 ### Use modules to export multiple implementations for a public type
 ```rust
-use nject::{injectable, provider};
+use nject::{init, injectable, provider};
 
 mod one {
     use nject::{injectable, module};
@@ -417,10 +411,7 @@ struct Provider {
 }
 
 fn main() {
-    #[provider]
-    struct InitProvider;
-
-    let provider = InitProvider.provide::<Provider>();
+    let provider: Provider = init!();
     let greetings = provider.iter::<&dyn Greeter>()
         .map(|g| g.greet())
         .collect::<Vec<_>>();
@@ -435,7 +426,7 @@ Same as [module public exports](#limitations-1)
 
 ### Use scopes to scope dependencies
 ```rust
-use nject::{injectable, module, provider};
+use nject::{init, injectable, module, provider};
 
 #[injectable]
 struct ModuleDep;
@@ -469,10 +460,7 @@ struct ScopeFacade<'a> {
 struct Provider(#[provide] RootDep);
 
 fn main() {
-    #[provider]
-    struct InitProvider;
-
-    let provider = InitProvider.provide::<Provider>();
+    let provider: Provider = init!();
     let scope = provider.scope();
     let scope_facade = scope.provide::<ScopeFacade>();
 

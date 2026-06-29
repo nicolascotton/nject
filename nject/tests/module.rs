@@ -1,9 +1,6 @@
 use crate::sub::Greeter;
-use nject::{injectable, module, provider};
+use nject::{init, injectable, module, provider};
 use std::rc::Rc;
-
-#[provider]
-struct InitProvider;
 
 #[test]
 fn provide_with_simple_module_should_export_its_members_correctly() {
@@ -11,7 +8,7 @@ fn provide_with_simple_module_should_export_its_members_correctly() {
     #[injectable]
     #[provider]
     struct Provider(#[import] crate::sub::SimpleModule);
-    let provider = InitProvider.provide::<Provider>();
+    let provider: Provider = init!();
     // When
     let facade = provider.provide::<sub::SimpleFacade>();
     // Then
@@ -24,7 +21,7 @@ fn provide_with_ref_to_module_should_export_its_members_correctly() {
     #[injectable]
     #[provider]
     struct Provider<'a>(#[import] &'a crate::sub::SimpleModule);
-    let module = InitProvider.provide::<sub::SimpleModule>();
+    let module: sub::SimpleModule = init!();
     let provider = Provider(&module);
     // When
     let facade = provider.provide::<sub::SimpleFacade>();
@@ -35,13 +32,14 @@ fn provide_with_ref_to_module_should_export_its_members_correctly() {
 #[test]
 fn provide_with_generic_module_should_export_its_members_correctly() {
     // Given
+    #[injectable]
     #[provider]
     #[provide(&'prov i32, &self.0)]
-    struct InitProvider(i32);
+    struct SeedProvider(#[inject(123)] i32);
     #[injectable]
     #[provider]
     struct Provider<'a, T>(#[import] crate::sub::GenericModule<'a, T>);
-    let init_prov = InitProvider(123);
+    let init_prov: SeedProvider = init!();
     let provider = init_prov.provide::<Provider<i32>>();
     // When
     let facade = provider.provide::<sub::GenericFacade<_>>();
@@ -55,7 +53,7 @@ fn provide_with_module_with_ref_dep_should_export_its_members_correctly() {
     #[injectable]
     #[provider]
     struct Provider<'a>(#[import] crate::sub::ModuleWithRef<'a>);
-    let provider = InitProvider.provide::<Provider>();
+    let provider: Provider = init!();
     // When
     let facade = provider.provide::<sub::SimpleRefFacade>();
     // Then
@@ -68,7 +66,7 @@ fn provide_with_module_with_dyn_dep_should_export_its_members_correctly() {
     #[injectable]
     #[provider]
     struct Provider(#[import] crate::sub::DynDepModule);
-    let provider = InitProvider.provide::<Provider>();
+    let provider: Provider = init!();
     // When
     let dep = provider.provide::<&dyn sub::Greeter>();
     // Then
@@ -87,7 +85,7 @@ fn provide_with_module_with_external_type_export_with_simple_factory_should_prov
     #[injectable]
     #[provider]
     struct Provider(#[import] crate::TestModule1);
-    let provider = InitProvider.provide::<Provider>();
+    let provider: Provider = init!();
     // When
     let dep = provider.provide::<Rc<i32>>();
     // Then
@@ -106,7 +104,7 @@ fn provide_with_module_with_external_type_export_with_complex_factory_should_pro
     #[provider]
     #[provide(i32, 123)]
     struct Provider(#[import] TestModule2);
-    let provider = InitProvider.provide::<Provider>();
+    let provider: Provider = init!();
     // When
     let dep = provider.provide::<Box<i32>>();
     // Then
@@ -123,7 +121,7 @@ fn provide_with_module_with_ref_external_type_export_should_provide_its_members_
     #[injectable]
     #[provider]
     struct Provider(#[import] TestModule3);
-    let provider = InitProvider.provide::<Provider>();
+    let provider: Provider = init!();
     // When
     let dep = provider.provide::<&i32>();
     // Then
@@ -148,7 +146,7 @@ fn provide_with_module_with_factory_internal_export_should_provide_its_members_c
     #[injectable]
     #[provider]
     struct Provider(#[import] Module);
-    let provider = InitProvider.provide::<Provider>();
+    let provider: Provider = init!();
     // When
     let dep = provider.provide::<Ref<i32>>();
     let dep_ref = provider.provide::<&Ref<i32>>();

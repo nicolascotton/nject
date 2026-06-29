@@ -4,8 +4,8 @@
 
 #[cfg(feature = "macro")]
 pub use nject_macro::{
-    InjectableHelperAttr, ModuleHelperAttr, ProviderHelperAttr, ScopeHelperAttr,
-    __nject_finalize_imports, init, inject, injectable, module, provider,
+    __nject_finalize_imports, InjectableHelperAttr, ModuleHelperAttr, ProviderHelperAttr,
+    ScopeHelperAttr, init, inject, injectable, module, provider,
 };
 
 /// Provide a value for a specified type. Should be used with the `provide` macro for a better experience.
@@ -62,7 +62,7 @@ pub trait Injectable<'prov, Injecty, Provider> {
 
 /// Import exportations made from a module. Should be used with the `import` macro for a better experience.
 /// ```rust
-/// use nject::{injectable, provider};
+/// use nject::{init, injectable, provider};
 ///
 /// mod sub {
 ///     use nject::{injectable, module};
@@ -87,11 +87,8 @@ pub trait Injectable<'prov, Injecty, Provider> {
 /// #[provider]
 /// struct Provider(#[import] crate::sub::SubModule);
 ///
-/// #[provider]
-/// struct InitProvider;
-///
 /// fn main() {
-///     let provider = InitProvider.provide::<Provider>();
+///     let provider: Provider = init!();
 ///     let facade = provider.provide::<sub::Facade>();
 /// }
 /// ```

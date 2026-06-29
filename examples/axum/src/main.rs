@@ -7,7 +7,7 @@ use axum::{
 };
 use axum_example::CreateUser;
 use axum_example::UserService;
-use nject::{injectable, provider};
+use nject::{init, injectable, provider};
 
 #[provider]
 #[injectable]
@@ -15,10 +15,7 @@ pub struct Provider(#[import] axum_example::Module);
 
 #[tokio::main]
 async fn main() {
-    #[provider]
-    struct InitProvider;
-
-    let provider: &'static Provider = Box::leak(Box::new(InitProvider.provide()));
+    let provider: &'static Provider = Box::leak(Box::new(init!()));
     let app = Router::new()
         .route("/api/users", post(create_user))
         .route("/api/users/{id}", get(get_user))

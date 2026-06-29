@@ -1,4 +1,4 @@
-use nject::{Iterable, injectable, provider};
+use nject::{Iterable, init, injectable, provider};
 use pubsub::{FirstMessage, SecondMessage, Subscriber};
 
 #[injectable]
@@ -21,10 +21,7 @@ impl Publisher {
 }
 
 fn main() {
-    #[provider]
-    struct InitProvider;
-
-    let publisher = InitProvider.provide::<Publisher>();
+    let publisher: Publisher = init!();
 
     publisher
         .publish(&FirstMessage)

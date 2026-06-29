@@ -1,6 +1,26 @@
 use nject::{init, injectable, module, provider};
 
 #[test]
+fn init_expr_without_modules_should_provide_target() {
+    #[derive(Debug, PartialEq)]
+    #[injectable]
+    struct Dependency(#[inject(42)] i32);
+
+    #[derive(Debug, PartialEq)]
+    #[injectable]
+    struct Service(Dependency);
+
+    #[injectable]
+    #[provider]
+    struct Provider;
+
+    let provider: Provider = init!();
+
+    let service: Service = provider.provide();
+    assert_eq!(service.0.0, 42);
+}
+
+#[test]
 fn init_expr_with_single_module_should_provide_target() {
     #[injectable]
     #[module]
@@ -64,7 +84,11 @@ fn init_expr_with_three_modules_should_chain_all_dependencies() {
         #[import] ExprThreeTopModule,
     );
 
-    let provider: Provider = init!(ExprThreeBaseModule, ExprThreeMiddleModule, ExprThreeTopModule);
+    let provider: Provider = init!(
+        ExprThreeBaseModule,
+        ExprThreeMiddleModule,
+        ExprThreeTopModule
+    );
 
     let result: String = provider.provide();
     assert_eq!(result, "result: 101");
@@ -94,7 +118,106 @@ fn init_expr_with_independent_modules_should_work() {
     assert_eq!(b, 20);
 }
 
-// ── Block form: init! { let name = M1, M2; } ───────────────────────
+#[test]
+fn init_block_without_modules_should_provide_target() {
+    #[derive(Debug, PartialEq)]
+    #[injectable]
+    struct Dependency(#[inject(99)] i32);
+
+    #[derive(Debug, PartialEq)]
+    #[injectable]
+    struct Service(Dependency);
+
+    #[injectable]
+    #[provider]
+    struct Provider;
+
+    init! {
+        let provider: Provider;
+    }
+
+    let service: Service = provider.provide();
+    assert_eq!(service.0.0, 99);
+}
+
+#[test]
+fn init_block_without_modules_and_without_type_annotation_should_infer_type() {
+    #[derive(Debug, PartialEq)]
+    #[injectable]
+    struct Dependency(#[inject(55)] i32);
+
+    #[derive(Debug, PartialEq)]
+    #[injectable]
+    struct Service(Dependency);
+
+    #[injectable]
+    #[provider]
+    struct Provider;
+
+    init! {
+        let provider;
+    }
+
+    let provider: Provider = provider;
+    let service: Service = provider.provide();
+    assert_eq!(service.0.0, 55);
+}
+
+#[test]
+fn init_block_with_mixed_module_and_moduleless_declarations_should_work() {
+    #[derive(Debug, PartialEq)]
+    #[injectable]
+    struct SimpleDependency(#[inject(7)] i32);
+
+    #[derive(Debug, PartialEq)]
+    #[injectable]
+    struct SimpleService(SimpleDependency);
+
+    #[injectable]
+    #[provider]
+    struct SimpleProvider;
+
+    #[injectable]
+    #[module]
+    #[export(i32, 10)]
+    struct ModuleProviderModule;
+
+    #[injectable]
+    #[provider]
+    struct ModuleProvider(#[import] ModuleProviderModule);
+
+    init! {
+        let simple: SimpleProvider;
+        let with_module: ModuleProvider = ModuleProviderModule;
+    }
+
+    let service: SimpleService = simple.provide();
+    let value: i32 = with_module.provide();
+    assert_eq!(service.0.0, 7);
+    assert_eq!(value, 10);
+}
+
+#[test]
+fn init_block_mut_without_modules_should_allow_mutation() {
+    #[derive(Debug, PartialEq)]
+    #[injectable]
+    struct Service(#[inject(0)] i32);
+
+    #[injectable]
+    #[provider]
+    struct Provider;
+
+    init! {
+        let mut provider: Provider;
+    }
+    init! {
+        let provider2: Provider;
+    }
+    provider = provider2;
+
+    let value: Service = provider.provide();
+    assert_eq!(value.0, 0);
+}
 
 #[test]
 fn init_block_with_single_module_should_provide_target() {
@@ -247,7 +370,10 @@ fn init_block_with_cross_module_borrowing_should_work() {
 
     #[injectable]
     #[provider]
-    struct AppProvider<'a>(#[import] CrossConfigModule, #[import] CrossServiceModule<'a>);
+    struct AppProvider<'a>(
+        #[import] CrossConfigModule,
+        #[import] CrossServiceModule<'a>,
+    );
 
     init! {
         let provider: AppProvider<'_> = CrossConfigModule, CrossServiceModule;
@@ -441,7 +567,10 @@ fn init_block_with_field_exports_and_three_modules_should_work() {
 
     #[injectable]
     #[provider]
-    struct AppProvider<'a>(#[import] FieldThreeConfigModule, #[import] FieldThreeCacheModule<'a>);
+    struct AppProvider<'a>(
+        #[import] FieldThreeConfigModule,
+        #[import] FieldThreeCacheModule<'a>,
+    );
 
     init! {
         let provider: AppProvider<'_> = FieldThreeConfigModule, FieldThreeCacheModule;

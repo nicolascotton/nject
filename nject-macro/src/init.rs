@@ -7,11 +7,12 @@ use syn::{
 };
 
 /// Two forms:
-/// - Expression: `init!(M1, M2, M3)` -> block expression (owned modules only)
+/// - Expression: `init!(M1, M2, M3)` or `init!()` -> block expression (owned modules only)
 /// - Block:
 ///   ```ignore
 ///   init! {
 ///       let [mut] name [: Type] = M1, M2;
+///       let [mut] name [: Type];
 ///       let [mut] name [: Type] = M3;
 ///   }
 ///   ```
@@ -65,13 +66,24 @@ impl Parse for LetDecl {
         } else {
             None
         };
-        input.parse::<Token![=]>()?;
-        let modules = Punctuated::<Type, Token![,]>::parse_separated_nonempty(input)?;
+        let mut modules = Vec::new();
+        if input.peek(Token![=]) {
+            input.parse::<Token![=]>()?;
+            while !input.is_empty() && !input.peek(Token![;]) {
+                modules.push(input.parse::<Type>()?);
+
+                if input.peek(Token![,]) {
+                    input.parse::<Token![,]>()?;
+                } else {
+                    break;
+                }
+            }
+        }
         Ok(LetDecl {
             is_mut,
             ident,
             ty,
-            modules: modules.into_iter().collect(),
+            modules,
         })
     }
 }
@@ -177,15 +189,7 @@ pub(crate) fn handle_init(item: TokenStream) -> syn::Result<TokenStream> {
     let input = syn::parse::<InitInput>(item)?;
 
     match input {
-        InitInput::Expr { modules } => {
-            if modules.is_empty() {
-                return Err(syn::Error::new(
-                    proc_macro2::Span::call_site(),
-                    "init! requires at least one module type",
-                ));
-            }
-            handle_init_expr(&modules)
-        }
+        InitInput::Expr { modules } => handle_init_expr(&modules),
         InitInput::Block { declarations } => {
             if declarations.is_empty() {
                 return Err(syn::Error::new(
@@ -198,9 +202,9 @@ pub(crate) fn handle_init(item: TokenStream) -> syn::Result<TokenStream> {
     }
 }
 
-/// Expression form: `init!(M1, M2)` -> block expression
+/// Expression form: `init!(M1, M2)` or `init!()` -> block expression
 fn handle_init_expr(modules: &[Type]) -> syn::Result<TokenStream> {
-    if modules.len() == 1 {
+    if modules.len() <= 1 {
         let output = quote! {
             {
                 #[nject::provider]
@@ -229,13 +233,6 @@ fn handle_init_block(declarations: &[LetDecl]) -> syn::Result<TokenStream> {
     let mut all_tokens = Vec::new();
 
     for decl in declarations {
-        if decl.modules.is_empty() {
-            return Err(syn::Error::new(
-                proc_macro2::Span::call_site(),
-                "each let declaration requires at least one module type",
-            ));
-        }
-
         let mutability = if decl.is_mut {
             quote! { mut }
         } else {
@@ -250,7 +247,7 @@ fn handle_init_block(declarations: &[LetDecl]) -> syn::Result<TokenStream> {
         let ident = &decl.ident;
         let name_prefix = ident.to_string();
 
-        if decl.modules.len() == 1 {
+        if decl.modules.len() <= 1 {
             let init_ident = format_ident!("__NjectInit_{}", name_prefix);
             all_tokens.push(quote! {
                 #[nject::provider]
