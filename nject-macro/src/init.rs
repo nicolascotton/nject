@@ -126,6 +126,7 @@ fn collect_lifetimes_from_type(ty: &Type, lifetimes: &mut Vec<Lifetime>) {
 fn gen_chain(
     modules: &[Type],
     name_prefix: &str,
+    include_final_module: bool,
 ) -> (
     Vec<proc_macro2::TokenStream>,
     Vec<proc_macro2::TokenStream>,
@@ -146,7 +147,13 @@ fn gen_chain(
 
     let mut last_var = init_var.clone();
 
-    for i in 0..modules.len() - 1 {
+    let step_count = if include_final_module {
+        modules.len()
+    } else {
+        modules.len().saturating_sub(1)
+    };
+
+    for i in 0..step_count {
         let step_ident = format_ident!("__NjectInitStep_{}_{}", name_prefix, i);
         let step_modules = &modules[0..=i];
 
@@ -204,7 +211,7 @@ pub(crate) fn handle_init(item: TokenStream) -> syn::Result<TokenStream> {
 
 /// Expression form: `init!(M1, M2)` or `init!()` -> block expression
 fn handle_init_expr(modules: &[Type]) -> syn::Result<TokenStream> {
-    if modules.len() <= 1 {
+    if modules.is_empty() {
         let output = quote! {
             {
                 #[nject::provider]
@@ -215,7 +222,7 @@ fn handle_init_expr(modules: &[Type]) -> syn::Result<TokenStream> {
         return Ok(output.into());
     }
 
-    let (struct_defs, let_bindings, last_var) = gen_chain(modules, "expr");
+    let (struct_defs, let_bindings, last_var) = gen_chain(modules, "expr", true);
 
     let output = quote! {
         {
@@ -247,7 +254,7 @@ fn handle_init_block(declarations: &[LetDecl]) -> syn::Result<TokenStream> {
         let ident = &decl.ident;
         let name_prefix = ident.to_string();
 
-        if decl.modules.len() <= 1 {
+        if decl.modules.is_empty() {
             let init_ident = format_ident!("__NjectInit_{}", name_prefix);
             all_tokens.push(quote! {
                 #[nject::provider]
@@ -256,7 +263,7 @@ fn handle_init_block(declarations: &[LetDecl]) -> syn::Result<TokenStream> {
                 let #mutability #ident #ty_annotation = #init_ident.provide();
             });
         } else {
-            let (struct_defs, let_bindings, last_var) = gen_chain(&decl.modules, &name_prefix);
+            let (struct_defs, let_bindings, last_var) = gen_chain(&decl.modules, &name_prefix, false);
             all_tokens.push(quote! {
                 #(#struct_defs)*
                 #(#let_bindings)*

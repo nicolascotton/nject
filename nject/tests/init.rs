@@ -29,7 +29,7 @@ fn init_expr_with_single_module_should_provide_target() {
 
     #[injectable]
     #[provider]
-    struct Provider(#[import] FooModule);
+    struct Provider(#[provide(i32, |x| *x)] i32);
 
     let provider: Provider = init!(FooModule);
 
@@ -51,7 +51,7 @@ fn init_expr_with_two_modules_should_chain_dependencies() {
 
     #[injectable]
     #[provider]
-    struct AppProvider(#[import] ExprTwoConfigModule, #[import] ExprTwoFormatModule);
+    struct AppProvider(#[provide(String, |x| x.to_owned())] String);
 
     let provider: AppProvider = init!(ExprTwoConfigModule, ExprTwoFormatModule);
 
