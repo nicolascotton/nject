@@ -1,4 +1,5 @@
 use proc_macro::TokenStream;
+use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
     GenericArgument, Ident, Lifetime, Token, Type,
@@ -156,9 +157,13 @@ fn gen_chain(
     for i in 0..step_count {
         let step_ident = format_ident!("__NjectInitStep_{}_{}", name_prefix, i);
         let step_modules = &modules[0..=i];
+        let chain_lifetime = Lifetime::new("'nject_init", Span::call_site());
 
         // Collect unique lifetimes from all module types in this step
         let mut lifetimes = Vec::new();
+        if i > 0 {
+            lifetimes.push(chain_lifetime.clone());
+        }
         for m in step_modules {
             collect_lifetimes_from_type(m, &mut lifetimes);
         }
@@ -169,8 +174,14 @@ fn gen_chain(
             quote! { <#(#lifetimes),*> }
         };
 
-        let import_fields = step_modules.iter().map(|m| {
-            quote! { #[import] #m }
+        let import_fields = step_modules.iter().enumerate().map(|(module_index, m)| {
+            let ty = if module_index < i {
+                quote! { &#chain_lifetime #m }
+            } else {
+                quote! { #m }
+            };
+
+            quote! { #[import] #[provide] #ty }
         });
 
         struct_defs.push(quote! {
@@ -263,7 +274,8 @@ fn handle_init_block(declarations: &[LetDecl]) -> syn::Result<TokenStream> {
                 let #mutability #ident #ty_annotation = #init_ident.provide();
             });
         } else {
-            let (struct_defs, let_bindings, last_var) = gen_chain(&decl.modules, &name_prefix, false);
+            let (struct_defs, let_bindings, last_var) =
+                gen_chain(&decl.modules, &name_prefix, false);
             all_tokens.push(quote! {
                 #(#struct_defs)*
                 #(#let_bindings)*

@@ -60,6 +60,46 @@ fn init_expr_with_two_modules_should_chain_dependencies() {
 }
 
 #[test]
+fn init_expr_with_two_modules_should_reference_previous_module() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    static INIT_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+    fn next_init_id() -> usize {
+        INIT_COUNT.fetch_add(1, Ordering::SeqCst)
+    }
+
+    #[derive(Debug, PartialEq)]
+    #[injectable]
+    struct Unique(#[inject(next_init_id())] usize);
+
+    struct StateId(usize);
+
+    #[injectable]
+    #[module]
+    struct StatefulModule {
+        #[export(StateId, |value| StateId(value.0))]
+        #[export]
+        value: Unique,
+    }
+
+    #[injectable]
+    #[module]
+    #[export(String, |value: StateId| format!("id={}", value.0))]
+    struct UsesStatefulModule;
+
+    #[injectable]
+    #[provider]
+    struct Provider(#[provide(String, |x| x.to_owned())] String);
+
+    let provider: Provider = init!(StatefulModule, UsesStatefulModule);
+
+    let value: String = provider.provide();
+    assert_eq!(value, "id=0");
+    assert_eq!(INIT_COUNT.load(Ordering::SeqCst), 1);
+}
+
+#[test]
 fn init_expr_with_three_modules_should_chain_all_dependencies() {
     #[injectable]
     #[module]

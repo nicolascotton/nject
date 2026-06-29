@@ -102,10 +102,34 @@ pub trait RefInjectable<'prov, Value, Provider> {
     fn inject(&'prov self, provider: &'prov Provider) -> Value;
 }
 
+impl<'prov, 'module, Value, Provider, Module> RefInjectable<'prov, Value, Provider>
+    for &'module Module
+where
+    'module: 'prov,
+    Module: RefInjectable<'prov, Value, Provider>,
+{
+    #[inline]
+    fn inject(&'prov self, provider: &'prov Provider) -> Value {
+        (**self).inject(provider)
+    }
+}
+
 /// For internal purposes only. Should not be used.
 #[doc(hidden)]
 pub trait RefIterable<'prov, Value, Provider> {
     fn inject(&'prov self, provider: &'prov Provider, index: usize) -> Value;
+}
+
+impl<'prov, 'module, Value, Provider, Module> RefIterable<'prov, Value, Provider>
+    for &'module Module
+where
+    'module: 'prov,
+    Module: RefIterable<'prov, Value, Provider>,
+{
+    #[inline]
+    fn inject(&'prov self, provider: &'prov Provider, index: usize) -> Value {
+        (**self).inject(provider, index)
+    }
 }
 
 /// For internal purposes only. Should not be used.
